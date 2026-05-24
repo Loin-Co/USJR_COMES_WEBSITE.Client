@@ -1,0 +1,285 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.APIs
+@inject IMembersService MembersService
+@inject IHttpClientFactory HttpClientFactory
+
+<div class="mgt-officers">
+
+    <div class="mgt-header">
+        <div class="mgt-header-left">
+            <h2 class="mgt-title">CSV Import</h2>
+            <span class="mgt-subtitle">Import or update student accounts from USJR enrollment masterlist</span>
+        </div>
+    </div>
+
+    <div class="officers-panel">
+        <div class="panel-header">
+            <div class="panel-header-left">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="panel-header-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span class="panel-year">Upload Masterlist</span>
+            </div>
+        </div>
+
+        <div class="import-form-body">
+            <p class="import-description">
+                Upload the USJR enrollment masterlist CSV to import or update student accounts.
+                Students without a password will be prompted to set one on first login.
+            </p>
+
+            <!-- File Upload -->
+            <div class="mo-field">
+                <label class="mo-label">CSV File <span class="required">*</span></label>
+                <div class="file-row">
+                    <InputFile OnChange="OnFileSelected" accept=".csv" id="csv-file-input" style="display:none;" />
+                    <label for="csv-file-input" class="btn-upload">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Choose CSV File
+                    </label>
+                    @if (_file != null)
+                    {
+                        <span class="file-chosen">@_file.Name (@FormatBytes(_file.Size))</span>
+                    }
+                    else
+                    {
+                        <span class="file-none">No file chosen</span>
+                    }
+                </div>
+            </div>
+
+            <!-- Academic Year -->
+            <div class="mo-field">
+                <label class="mo-label">Academic Year <span class="required">*</span></label>
+                @if (_loadingYears)
+                {
+                    <div class="skeleton" style="height:36px;"></div>
+                }
+                else
+                {
+                    <select class="mo-input" @bind="_selectedYear">
+                        <option value="">-- Select Academic Year --</option>
+                        @foreach (var yr in _years)
+                        {
+                            <option value="@yr.Label">@yr.Label @(yr.IsCurrent ? "(Current)" : "")</option>
+                        }
+                    </select>
+                }
+            </div>
+
+            <!-- Semester -->
+            <div class="mo-field">
+                <label class="mo-label">Semester <span class="required">*</span></label>
+                <select class="mo-input" @bind="_selectedSemester">
+                    <option value="">-- Select Semester --</option>
+                    <option value="1st Semester">1st Semester</option>
+                    <option value="2nd Semester">2nd Semester</option>
+                    <option value="Summer">Summer</option>
+                </select>
+            </div>
+
+            <!-- Import Button -->
+            <button class="btn-import" @onclick="HandleImport"
+                    disabled="@(_importing || _file == null || string.IsNullOrEmpty(_selectedYear) || string.IsNullOrEmpty(_selectedSemester))">
+                @if (_importing)
+                {
+                    <span>Importingâ€¦ please wait</span>
+                }
+                else
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Import Students</span>
+                }
+            </button>
+
+            @if (!string.IsNullOrEmpty(_importError))
+            {
+                <div class="mo-error">@_importError</div>
+            }
+        </div>
+    </div>
+
+    <!-- Results Panel -->
+    @if (_result != null)
+    {
+        <div class="officers-panel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="panel-header-icon"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="panel-year">Import Complete</span>
+                </div>
+            </div>
+
+            <div class="results-body">
+                <div class="stats-grid">
+                    <div class="stat-box stat-box-created">
+                        <div class="stat-number">@_result.created</div>
+                        <div class="stat-label">Created</div>
+                    </div>
+                    <div class="stat-box stat-box-updated">
+                        <div class="stat-number">@_result.updated</div>
+                        <div class="stat-label">Updated</div>
+                    </div>
+                    <div class="stat-box stat-box-skipped">
+                        <div class="stat-number">@_result.skipped</div>
+                        <div class="stat-label">Skipped</div>
+                    </div>
+                </div>
+
+                @if (_result.records?.Length > 0)
+                {
+                    <div class="import-table-wrap">
+                        <table class="import-table">
+                            <thead>
+                                <tr>
+                                    <th>School ID</th>
+                                    <th>Last Name</th>
+                                    <th>First Name</th>
+                                    <th>Year Level</th>
+                                    <th>Section</th>
+                                    <th>Gender</th>
+                                    <th>Email</th>
+                                    <th>Enroll Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in _result.records)
+                                {
+                                    <tr>
+                                        <td>@r.schoolId</td>
+                                        <td>@r.lastName</td>
+                                        <td>@r.firstName</td>
+                                        <td>@r.yearLevel</td>
+                                        <td>@r.section</td>
+                                        <td>@r.gender</td>
+                                        <td>@r.email</td>
+                                        <td>@r.enrollStatus</td>
+                                        <td><span class="action-badge action-@r.action.ToLower()">@r.action</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                @if (_result.errors?.Length > 0)
+                {
+                    <div class="error-section">
+                        <div class="error-section-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            @_result.errors.Length Error@(_result.errors.Length != 1 ? "s" : "")
+                        </div>
+                        <div class="error-list">
+                            @foreach (var err in _result.errors)
+                            {
+                                <div class="error-row">Row @err.row: @err.message</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private HttpClient Http => HttpClientFactory.CreateClient("general");
+    private IBrowserFile? _file;
+    private string _selectedYear     = string.Empty;
+    private string _selectedSemester = string.Empty;
+    private bool _loadingYears = true;
+    private bool _importing    = false;
+    private string? _importError;
+    private ImportResult? _result;
+    private List<AcademicYearViewModel> _years = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loadingYears = true;
+        try
+        {
+            _years = await MembersService.GetYearsAsync();
+            var current = _years.FirstOrDefault(y => y.IsCurrent);
+            if (current != null) _selectedYear = current.Label;
+        }
+        catch { }
+        _loadingYears = false;
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _file = e.File;
+        _result = null;
+        _importError = null;
+    }
+
+    private async Task HandleImport()
+    {
+        if (_file == null) return;
+        _importing = true;
+        _importError = null;
+        _result = null;
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            const long maxSize = 10 * 1024 * 1024;
+            using var stream = _file.OpenReadStream(maxSize);
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/csv");
+            content.Add(fileContent, "file", _file.Name);
+            content.Add(new StringContent(_selectedYear),    "academicYear");
+            content.Add(new StringContent(_selectedSemester), "semester");
+
+            var response = await Http.PostAsync(ApiEndpoints.Users.ImportCsv, content);
+            if (response.IsSuccessStatusCode)
+                _result = await response.Content.ReadFromJsonAsync<ImportResult>();
+            else
+                _importError = $"Import failed: {await response.Content.ReadAsStringAsync()}";
+        }
+        catch (Exception ex)
+        {
+            _importError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _importing = false;
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:0.0} KB";
+        return $"{bytes / (1024.0 * 1024):0.0} MB";
+    }
+
+    private class ImportResult
+    {
+        public int created { get; set; }
+        public int updated { get; set; }
+        public int skipped { get; set; }
+        public ImportError[]? errors { get; set; }
+        public ImportRecord[]? records { get; set; }
+    }
+
+    private class ImportError
+    {
+        public int row { get; set; }
+        public string message { get; set; } = "";
+    }
+
+    private class ImportRecord
+    {
+        public string schoolId { get; set; } = "";
+        public string lastName { get; set; } = "";
+        public string firstName { get; set; } = "";
+        public string yearLevel { get; set; } = "";
+        public string section { get; set; } = "";
+        public string gender { get; set; } = "";
+        public string email { get; set; } = "";
+        public string enrollStatus { get; set; } = "";
+        public string action { get; set; } = "";
+    }
+}

@@ -1,0 +1,182 @@
+﻿@inject USJR_COMES_WEBSITE.Services.INewsFeedService NewsFeedService
+@inject USJR_COMES_WEBSITE.Services.UserStateService UserState
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.APIs
+
+<div class="posts-wrapper">
+    @if (Posts == null)
+    {
+        <SkeletonPostCard Count="4" />
+    }
+    else if (Posts.Count == 0)
+    {
+        <div class="no-events" style="text-align: center; margin-top: 2rem;">No Contents Yet</div>
+    }
+    else
+    {
+        @foreach (var (post, postIndex) in Posts.Select((p, i) => (p, i)))
+        {
+            <div class="post-card">
+                @{
+                    var firstUrl = post.ImageUrl?.Split(';').FirstOrDefault() ?? "";
+                    var firstMime = post.PostMimeTypes?.Split(';').FirstOrDefault() ?? "";
+                    var imgLoading = postIndex < 3 ? "eager" : "lazy";
+                }
+                @if (!string.IsNullOrEmpty(firstUrl))
+                {
+                    if (IsVideo(firstUrl, firstMime))
+                    {
+                        <div style="height: 200px; border-radius: 8px 8px 0 0; overflow: hidden;">
+                            <video src="@GetFullUrl(firstUrl)" style="width: 100%; height: 100%; object-fit: cover;" controls muted></video>
+                        </div>
+                    }
+                    else if (IsPdf(firstUrl, firstMime))
+                    {
+                        <div style="height: 200px; border-radius: 8px 8px 0 0; overflow: hidden; background: #eee; display: flex; align-items: center; justify-content: center;">
+                            <iframe src="@GetFullUrl(firstUrl)" style="width: 100%; height: 100%; border: none;"></iframe>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="position: relative; height: 200px; border-radius: 8px 8px 0 0; overflow: hidden;">
+                            <img src="@GetFullUrl(firstUrl)" loading="@imgLoading" alt="@post.Title"
+                                 style="width: 100%; height: 100%; object-fit: cover; display: block;" />
+                            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 50%; background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.8)); pointer-events: none;"></div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="post-note-placeholder">
+                        <span class="post-note-title">@post.Title</span>
+                    </div>
+                }
+
+                <div class="post-body">
+                    <div class="post-author-row">
+                        <div class="post-avatar">
+                            @if (!string.IsNullOrEmpty(post.ProfileImageSrc))
+                            {
+                                <img src="@GetFullUrl(post.ProfileImageSrc)" alt="@post.Name" loading="@imgLoading" />
+                            }
+                            else
+                            {
+                                <span>@(post.Name.Length > 0 ? post.Name[0] : '?')</span>
+                            }
+                        </div>
+                        <div class="post-author-info">
+                            <span class="post-name">@post.Name</span>
+                            <span class="post-datetime">@post.DateTime</span>
+                        </div>
+                    </div>
+
+                    <div class="post-title">@post.Title</div>
+                    <div class="post-description">@post.Description</div>
+
+                    <hr class="post-divider" />
+
+                    <div class="post-actions">
+                        <button class="action-btn" @onclick="() => ToggleLike(post)">
+                            @if (post.IsLiked)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#afd94d" stroke="#0c2020" stroke-width="2" class="action-icon"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                            }
+                            <span>@post.Likes</span>
+                        </button>
+
+                        <button class="action-btn" @onclick="() => OpenDetails(post)">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <span>@post.Comments</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+<NewsFeedContentDetails
+    IsVisible="selectedPost != null"
+    PostId="@(selectedPost?.Id ?? 0)"
+    Name="@(selectedPost?.Name ?? "")"
+    PostAuthorImageSrc="@(selectedPost?.ProfileImageSrc ?? "")"
+    PostDateTime="@(selectedPost?.DateTime ?? "")"
+    Title="@(selectedPost?.Title ?? "")"
+    Description="@(selectedPost?.Description ?? "")"
+    ImageUrl="@(selectedPost?.ImageUrl ?? "")"
+    PostMimeTypes="@(selectedPost?.PostMimeTypes ?? "")"
+    Likes="@(selectedPost?.Likes ?? 0)"
+    Comments="@(selectedPost?.Comments ?? 0)"
+    IsLiked="@(selectedPost?.IsLiked ?? false)"
+    OnClose="CloseDetails"
+    OnToggleLike="ToggleLikeSelected"
+    OnCommentAdded="HandleCommentAdded" />
+
+@code {
+    private List<NewsFeedPostViewModel>? Posts;
+    private NewsFeedPostViewModel? selectedPost;
+
+    private bool IsVideo(string url, string mime = "") =>
+        (!string.IsNullOrEmpty(mime) && mime.StartsWith("video/")) ||
+        url.Contains(".mp4", StringComparison.OrdinalIgnoreCase) ||
+        url.StartsWith("data:video", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsPdf(string url, string mime = "") =>
+        (!string.IsNullOrEmpty(mime) && mime == "application/pdf") ||
+        url.Contains(".pdf", StringComparison.OrdinalIgnoreCase) ||
+        url.StartsWith("data:application/pdf", StringComparison.OrdinalIgnoreCase);
+
+    private string GetFullUrl(string url) => !string.IsNullOrEmpty(url) && url.StartsWith("data:") ? url : ApiEndpoints.ServerBaseUrl + url;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Show loading immediately, then load data in background without blocking
+        Posts = null;
+        StateHasChanged();
+        _ = LoadPostsInBackground();
+    }
+
+    private async Task LoadPostsInBackground()
+    {
+        var schoolId = UserState.CurrentUser?.SchoolId;
+        var fetchedPosts = await NewsFeedService.GetNewsFeedPostsAsync(schoolId);
+        Posts = fetchedPosts?.Where(p => p.Status == "Published").ToList() ?? new List<NewsFeedPostViewModel>();
+        StateHasChanged();
+    }
+
+    private async Task ToggleLike(NewsFeedPostViewModel post)
+    {
+        var schoolId = UserState.CurrentUser?.SchoolId;
+        if (string.IsNullOrEmpty(schoolId)) return;
+
+        // Optimistic update
+        post.IsLiked = !post.IsLiked;
+        post.Likes += post.IsLiked ? 1 : -1;
+
+        var result = await NewsFeedService.ToggleLikeAsync(post.Id, schoolId);
+        if (result.HasValue)
+        {
+            post.IsLiked = result.Value.IsLiked;
+            post.Likes = result.Value.Likes;
+        }
+    }
+
+    private void OpenDetails(NewsFeedPostViewModel post) => selectedPost = post;
+
+    private void CloseDetails() => selectedPost = null;
+
+    private async Task ToggleLikeSelected()
+    {
+        if (selectedPost != null)
+            await ToggleLike(selectedPost);
+    }
+
+    private void HandleCommentAdded()
+    {
+        if (selectedPost != null) selectedPost.Comments++;
+    }
+}

@@ -1,0 +1,1208 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.APIs
+@using Microsoft.AspNetCore.Components.Forms
+@inject IBudgetService BudgetService
+@inject UserStateService UserState
+@inject IJSRuntime JS
+
+<div class="budget-wrap">
+
+    <!-- â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <div class="budget-header">
+        <div>
+            <h2 class="budget-title">Budget & Finance</h2>
+            <p class="budget-subtitle">Track cash flow, program allocations, and expenses</p>
+        </div>
+        <div class="budget-header-actions">
+            @if (!ViewOnly)
+            {
+                <button class="btn-cash-in" @onclick='() => OpenOverallTxModal("Income")'>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Cash In
+                </button>
+                <button class="btn-cash-out" @onclick='() => OpenOverallTxModal("Expense")'>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Cash Out
+                </button>
+                <button class="btn-new-program" @onclick="() => OpenAccountModal(false)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New Program
+                </button>
+            }
+            <button class="btn-export" @onclick="ExportOverviewToCsv">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- â”€â”€ Academic Year Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+    <div class="ay-bar">
+        <div class="ay-bar-left">
+            <span class="ay-label-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </span>
+            <span class="ay-label-text">Academic Year</span>
+            <select class="ay-select" value="@(_selectedYear?.Id ?? 0)" @onchange="OnYearChanged">
+                @foreach (var y in _years)
+                {
+                    <option value="@y.Id">@y.Label @(y.IsCurrent ? "(Current)" : "")</option>
+                }
+            </select>
+            @if (_selectedYear?.IsCurrent == true)
+            {
+                <span class="ay-current-badge">Active</span>
+            }
+            else if (_selectedYear != null)
+            {
+                <span class="ay-past-badge">Past</span>
+            }
+        </div>
+        <div class="ay-bar-right">
+            @if (!ViewOnly)
+            {
+                <button class="btn-ay-new" @onclick="OpenNewYearModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    New A.Y.
+                </button>
+                @if (_selectedYear != null && NetBalance != 0)
+                {
+                    <button class="btn-ay-transfer" @onclick="OpenTransferModal">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        Transfer Budget
+                    </button>
+                }
+            }
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <SkeletonBudgetRow Count="4" />
+    }
+    else if (_selectedYear == null)
+    {
+        <div class="budget-no-year">
+            <p>No academic year yet.</p>
+            <button class="bgt-btn-save" @onclick="OpenNewYearModal">Create First Academic Year</button>
+        </div>
+    }
+    else
+    {
+        <div class="budget-summary-row">
+            <div class="summary-card cashin-card">
+                <div class="summary-label">Total Cash In</div>
+                <div class="summary-amount income-color">â‚±@TotalAllIncome.ToString("N2")</div>
+                <div class="summary-sub">
+                    <span class="income-dot"></span>
+                    Overall + @ProgramAccounts.Count program(s)
+                </div>
+            </div>
+            <div class="summary-card cashout-card">
+                <div class="summary-label">Total Cash Out</div>
+                <div class="summary-amount expense-color">â‚±@TotalAllExpense.ToString("N2")</div>
+                <div class="summary-sub">
+                    <span class="expense-dot"></span>
+                    Overall + @ProgramAccounts.Count program(s)
+                </div>
+            </div>
+            <div class="summary-card net-card">
+                <div class="summary-label">Net Balance</div>
+                <div class="summary-amount @(NetBalance < 0 ? "negative" : "")">â‚±@NetBalance.ToString("N2")</div>
+                <div class="summary-sub">@ProgramAccounts.Count program(s)</div>
+            </div>
+        </div>
+
+        @if (NetBalance < 0)
+        {
+            <div class="budget-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Overall cash out exceeds cash in by â‚±@(Math.Abs(NetBalance).ToString("N2")). Record any missing income entries.
+            </div>
+        }
+
+        <!-- â”€â”€ Two-panel layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+        <div class="budget-panels">
+
+            <!-- Left: Programs -->
+            <div class="accounts-panel">
+                <div class="accounts-panel-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+                    <span>Programs</span>
+                    <div class="prog-tab-bar">
+                        <button class="prog-tab @(_programsTab == "active" ? "prog-tab-active" : "")" @onclick='() => _programsTab = "active"'>
+                            Active
+                            @if (ProgramAccounts.Any()) { <span class="prog-tab-count">@ProgramAccounts.Count</span> }
+                        </button>
+                        <button class="prog-tab @(_programsTab == "pending" ? "prog-tab-active" : "")" @onclick='() => _programsTab = "pending"'>
+                            Pending
+                            @if (_pendingAccountsList.Any()) { <span class="prog-tab-count prog-tab-count-pending">@_pendingAccountsList.Count</span> }
+                        </button>
+                    </div>
+                </div>
+
+                @if (_programsTab == "active")
+                {
+                    <!-- Overall Fund entry -->
+                    <div class="account-item @(_selectedAccount == null ? "selected" : "")" @onclick="SelectOverview">
+                        <div class="account-item-top">
+                            <span class="account-icon main-icon">âˆ‘</span>
+                            <div>
+                                <div class="account-name">Overall Fund</div>
+                                <div class="account-type-label">All programs combined</div>
+                            </div>
+                        </div>
+                        <div class="account-cashflow-row">
+                            <span class="acf-in">+â‚±@TotalAllIncome.ToString("N2")</span>
+                            <span class="acf-sep">/</span>
+                            <span class="acf-out">âˆ’â‚±@TotalAllExpense.ToString("N2")</span>
+                            <span class="acf-net @(NetBalance < 0 ? "negative" : "")">= â‚±@NetBalance.ToString("N2")</span>
+                        </div>
+                    </div>
+
+                    @foreach (var prog in ProgramAccounts)
+                    {
+                        bool overSpent = prog.TargetBudget > 0 && prog.TotalExpense > prog.TargetBudget;
+                        <div class="account-item @(_selectedAccount?.Id == prog.Id ? "selected" : "") @(overSpent ? "over-budget" : "")" @onclick="() => SelectAccount(prog)">
+                            <div class="account-item-top">
+                                <span class="account-icon @(prog.EventId.HasValue ? "event-icon" : "prog-icon")">
+                                    @(prog.EventId.HasValue ? "E" : "P")
+                                </span>
+                                <div style="flex:1;min-width:0;">
+                                    <div class="account-name">@prog.Title</div>
+                                    <div class="account-type-label" style="display:flex;align-items:center;gap:0.35rem;">
+                                        @if (prog.EventId.HasValue) { <span class="event-acct-tag">Event Budget</span> }
+                                        else { <span>Program</span> }
+                                        @if (prog.TargetBudget > 0) { <span>Â· Target â‚±@prog.TargetBudget.ToString("N2")</span> }
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="account-cashflow-row">
+                                <span class="acf-in">+â‚±@prog.TotalIncome.ToString("N2")</span>
+                                <span class="acf-sep">/</span>
+                                <span class="acf-out">âˆ’â‚±@prog.TotalExpense.ToString("N2")</span>
+                                <span class="acf-net @(prog.Balance < 0 ? "negative" : "")">= â‚±@prog.Balance.ToString("N2")</span>
+                            </div>
+                            @if (prog.TargetBudget > 0)
+                            {
+                                var pct = Math.Min(100m, prog.TotalExpense / prog.TargetBudget * 100);
+                                <div class="prog-bar-wrap">
+                                    <div class="prog-bar"><div class="prog-bar-fill @(pct >= 100 ? "full" : "")" style="width:@pct.ToString("0")%"></div></div>
+                                    <div class="prog-bar-label">Spent â‚±@prog.TotalExpense.ToString("N2") / â‚±@prog.TargetBudget.ToString("N2")</div>
+                                </div>
+                            }
+                            @if (overSpent) { <div class="prog-warn-label">âš  Over target budget</div> }
+                            @if (!ViewOnly)
+                            {
+                                <div class="account-item-actions">
+                                    <button class="acct-btn-edit" @onclick:stopPropagation="true" @onclick="() => OpenAccountModal(true, prog)">Edit</button>
+                                    @if (!prog.EventId.HasValue)
+                                    {
+                                        <button class="acct-btn-del" @onclick:stopPropagation="true" @onclick="() => ConfirmDeleteAccount(prog)">Del</button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (!ProgramAccounts.Any())
+                    {
+                        <div class="accounts-empty">No programs yet. Create one to track sub-budgets.</div>
+                    }
+                }
+                else
+                {
+                    @if (!_pendingAccountsList.Any())
+                    {
+                        <div class="accounts-empty">No programs pending approval.</div>
+                    }
+                    else
+                    {
+                        @foreach (var prog in _pendingAccountsList)
+                        {
+                            <div class="account-item" style="opacity:0.75;cursor:default;">
+                                <div class="account-item-top">
+                                    <span class="account-icon prog-icon">P</span>
+                                    <div style="flex:1;min-width:0;">
+                                        <div class="account-name">@prog.Title</div>
+                                        <div class="account-type-label" style="display:flex;align-items:center;gap:0.35rem;">
+                                            <span>Program</span>
+                                            @if (prog.TargetBudget > 0) { <span>Â· Target â‚±@prog.TargetBudget.ToString("N2")</span> }
+                                        </div>
+                                    </div>
+                                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.15);color:#f59e0b;font-weight:600;white-space:nowrap;">Pending</span>
+                                </div>
+                                @if (!string.IsNullOrEmpty(prog.Description))
+                                {
+                                    <div class="account-type-label" style="margin-top:0.25rem;font-size:11px;">@prog.Description</div>
+                                }
+                                @if (!string.IsNullOrEmpty(prog.CreatedBy))
+                                {
+                                    <div class="account-type-label" style="margin-top:0.2rem;font-size:11px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:middle;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        @prog.CreatedBy
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                }
+            </div>
+
+            <!-- Right: Transactions -->
+            <div class="transactions-panel">
+
+                <div class="tx-tabs">
+                    <button class="tx-tab @(_txTab == "overview" ? "active" : "")" @onclick='() => _txTab = "overview"'>
+                        @(_selectedAccount != null ? _selectedAccount.Title : "Overview")
+                    </button>
+                    <button class="tx-tab @(_txTab == "all" ? "active" : "")" @onclick='() => _txTab = "all"'>
+                        All Transactions
+                        <span class="tx-tab-count">@_accounts.Sum(a => a.Transactions.Count)</span>
+                    </button>
+                </div>
+
+                @if (_txTab == "overview")
+                {
+                    @if (_selectedAccount == null)
+                    {
+                        <div class="tx-panel-header">
+                            <div>
+                                <div class="tx-panel-title">Overall Fund</div>
+                                <div class="tx-panel-sub">@MainDirectTransactions.Count direct transaction(s)</div>
+                            </div>
+                            @if (!ViewOnly)
+                            {
+                                <div class="tx-panel-actions">
+                                    <button class="btn-add-tx btn-cashin-sm" @onclick='() => OpenOverallTxModal("Income")'>+ Cash In</button>
+                                    <button class="btn-add-tx btn-cashout-sm" @onclick='() => OpenOverallTxModal("Expense")'>âˆ’ Cash Out</button>
+                                </div>
+                            }
+                        </div>
+
+                        @if (OverviewExpenseBreakdown.Any())
+                        {
+                            <div class="expense-breakdown">
+                                <div class="breakdown-label">Direct Expense Breakdown</div>
+                                <div class="breakdown-chips">
+                                    @foreach (var cat in OverviewExpenseBreakdown)
+                                    {
+                                        <span class="breakdown-chip">@cat.Category: â‚±@cat.Total.ToString("N2")</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        @if (!MainDirectTransactions.Any())
+                        {
+                            <div class="tx-empty">No direct transactions yet. Use Cash In / Cash Out above.</div>
+                        }
+                        else
+                        {
+                            <div class="tx-list">
+                                @foreach (var tx in MainDirectTransactions.OrderByDescending(t => t.TransactionDate).ThenByDescending(t => t.Id))
+                                {
+                                    @TxRow(tx)
+                                }
+                            </div>
+                        }
+
+                        @if (ProgramAccounts.Any())
+                        {
+                            <div class="prog-breakdown-section">
+                                <div class="prog-breakdown-header">Program Breakdown</div>
+                                @foreach (var prog in ProgramAccounts)
+                                {
+                                    <div class="prog-breakdown-row" @onclick="() => SelectAccount(prog)">
+                                        <div class="prog-bd-left">
+                                            <span class="account-icon @(prog.EventId.HasValue ? "event-icon" : "prog-icon") prog-bd-icon">@(prog.EventId.HasValue ? "E" : "P")</span>
+                                            <span class="prog-bd-name">@prog.Title</span>
+                                        </div>
+                                        <div class="prog-bd-flow">
+                                            <span class="acf-in">+â‚±@prog.TotalIncome.ToString("N2")</span>
+                                            <span class="acf-sep">/</span>
+                                            <span class="acf-out">âˆ’â‚±@prog.TotalExpense.ToString("N2")</span>
+                                            <span class="acf-net @(prog.Balance < 0 ? "negative" : "")">= â‚±@prog.Balance.ToString("N2")</span>
+                                        </div>
+                                    </div>
+                                }
+                                @{
+                                    var progIn  = ProgramAccounts.Sum(p => p.TotalIncome);
+                                    var progOut = ProgramAccounts.Sum(p => p.TotalExpense);
+                                    var progNet = ProgramAccounts.Sum(p => p.Balance);
+                                }
+                                <div class="prog-breakdown-total">
+                                    <span class="prog-bd-total-label">All Programs</span>
+                                    <div class="prog-bd-flow">
+                                        <span class="acf-in">+â‚±@progIn.ToString("N2")</span>
+                                        <span class="acf-sep">/</span>
+                                        <span class="acf-out">âˆ’â‚±@progOut.ToString("N2")</span>
+                                        <span class="acf-net @(progNet < 0 ? "negative" : "")">= â‚±@progNet.ToString("N2")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="tx-panel-header">
+                            <div>
+                                <div class="tx-panel-title">@_selectedAccount.Title</div>
+                                <div class="tx-panel-sub">@_selectedAccount.Transactions.Count transaction(s)</div>
+                            </div>
+                            <div class="tx-panel-actions">
+                                @if (!ViewOnly)
+                                {
+                                    <button class="btn-add-tx btn-cashin-sm" @onclick='() => OpenProgramTxModal("Income")'>+ Cash In</button>
+                                    <button class="btn-add-tx btn-cashout-sm" @onclick='() => OpenProgramTxModal("Expense")'>âˆ’ Cash Out</button>
+                                }
+                                <button class="acct-btn-export" @onclick="() => ExportProgramToCsv(_selectedAccount)">CSV</button>
+                            </div>
+                        </div>
+
+                        @if (SelectedCategories.Any())
+                        {
+                            <div class="expense-breakdown">
+                                <div class="breakdown-label">Expense Breakdown</div>
+                                <div class="breakdown-chips">
+                                    @foreach (var cat in SelectedCategories) { <span class="breakdown-chip">@cat.Category: â‚±@cat.Total.ToString("N2")</span> }
+                                </div>
+                            </div>
+                        }
+
+                        @if (!_selectedAccount.Transactions.Any())
+                        {
+                            <div class="tx-empty">No transactions yet for this program.</div>
+                        }
+                        else
+                        {
+                            <div class="tx-list">
+                                @foreach (var tx in _selectedAccount.Transactions.OrderByDescending(t => t.TransactionDate).ThenByDescending(t => t.Id))
+                                {
+                                    @TxRow(tx)
+                                }
+                            </div>
+                        }
+                    }
+                }
+                else
+                {
+                    <div class="tx-panel-header">
+                        <div>
+                            <div class="tx-panel-title">Transaction History</div>
+                            <div class="tx-panel-sub">All Â· @_accounts.Sum(a => a.Transactions.Count) record(s)</div>
+                        </div>
+                    </div>
+                    @if (!AllTransactions.Any())
+                    {
+                        <div class="tx-empty">No transactions recorded yet.</div>
+                    }
+                    else
+                    {
+                        <div class="tx-list">
+                            @foreach (var item in AllTransactions)
+                            {
+                                <div class="tx-row">
+                                    <div class="tx-type-dot @(item.Tx.TransactionType == "Income" ? "income-dot-lg" : "expense-dot-lg")"></div>
+                                    <div class="tx-info">
+                                        <div class="tx-title">@item.Tx.Title</div>
+                                        <div class="tx-meta">
+                                            @item.Tx.TransactionDate
+                                            <span class="tx-acct-chip">@item.AccountTitle</span>
+                                            @if (!string.IsNullOrEmpty(item.Tx.Category)) { <span class="tx-cat-chip">@item.Tx.Category</span> }
+                                            @if (!string.IsNullOrEmpty(item.Tx.Description)) { <span class="tx-desc">Â· @item.Tx.Description</span> }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(item.Tx.RequestedByName))
+                                        {
+                                            <div class="tx-requester">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                                @item.Tx.RequestedByName
+                                                @if (!string.IsNullOrEmpty(item.Tx.CreatedBy)) { <span class="tx-school-id">(@item.Tx.CreatedBy)</span> }
+                                            </div>
+                                        }
+                                    </div>
+                                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                                        <div class="tx-amount @(item.Tx.TransactionType == "Income" ? "income-amount" : "expense-amount")">
+                                            @(item.Tx.TransactionType == "Income" ? "+" : "âˆ’")â‚±@item.Tx.Amount.ToString("N2")
+                                        </div>
+                                        @if (item.Tx.ApprovalStatus == "Pending")
+                                        {
+                                            <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.15);color:#f59e0b;font-weight:600;">Pending</span>
+                                        }
+                                        else if (item.Tx.ApprovalStatus == "Approved")
+                                        {
+                                            <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.12);color:#22c55e;font-weight:600;">Approved</span>
+                                        }
+                                        else if (item.Tx.ApprovalStatus == "Rejected")
+                                        {
+                                            <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(239,68,68,.12);color:#ef4444;font-weight:600;" title="@item.Tx.RejectionReason">Rejected</span>
+                                        }
+                                    </div>
+                                    <div class="tx-actions">
+                                        @if (item.Tx.HasReceipt)
+                                        {
+                                            <a href="@ApiEndpoints.Budget.TransactionReceipt(item.Tx.Id)" target="_blank" class="tx-btn-receipt" title="View receipt">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                            </a>
+                                        }
+                                        @if (!ViewOnly)
+                                        {
+                                            <button class="tx-btn-edit" @onclick="() => OpenEditTransactionModal(item.Tx)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                            </button>
+                                            <button class="tx-btn-del" @onclick="() => ConfirmDeleteTransaction(item.Tx)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- â”€â”€ New Academic Year Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+@if (_newYearModalOpen)
+{
+    <div class="bgt-overlay" @onclick="CloseNewYearModal">
+        <div class="bgt-modal bgt-modal-sm" @onclick:stopPropagation="true">
+            <div class="bgt-modal-header">
+                <h3 class="bgt-modal-title">New Academic Year</h3>
+            </div>
+            <div class="bgt-modal-body">
+                <div class="bgt-field">
+                    <label class="bgt-label">Label <span class="req">*</span></label>
+                    <input class="bgt-input" type="text" @bind="_newYearLabel" placeholder="e.g. 2025-2026" />
+                </div>
+                @if (!string.IsNullOrEmpty(_newYearError)) { <div class="bgt-error">@_newYearError</div> }
+            </div>
+            <div class="bgt-modal-footer">
+                <button class="bgt-btn-cancel" @onclick="CloseNewYearModal">Cancel</button>
+                <button class="bgt-btn-save" @onclick="SaveNewYear" disabled="@_saving">@(_saving ? "Creatingâ€¦" : "Create")</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- â”€â”€ Transfer Budget Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+@if (_transferModalOpen)
+{
+    <div class="bgt-overlay" @onclick="CloseTransferModal">
+        <div class="bgt-modal" @onclick:stopPropagation="true">
+            <div class="bgt-modal-header" style="border-bottom-color:rgba(255,193,7,0.3);background:rgba(255,193,7,0.04);">
+                <h3 class="bgt-modal-title" style="color:#ffd54f;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:0.4rem;"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    Transfer Budget
+                </h3>
+            </div>
+            <div class="bgt-modal-body">
+                <div class="transfer-info-row">
+                    <div class="transfer-info-box">
+                        <div class="transfer-info-label">From</div>
+                        <div class="transfer-info-value">A.Y. @(_selectedYear?.Label)</div>
+                        <div class="transfer-info-sub">Net balance: <strong class="@(NetBalance < 0 ? "expense-color" : "income-color")">â‚±@NetBalance.ToString("N2")</strong></div>
+                    </div>
+                    <div class="transfer-arrow">â†’</div>
+                    <div class="transfer-info-box">
+                        <div class="transfer-info-label">To</div>
+                        @if (_transferToNewYear)
+                        {
+                            <div class="transfer-info-value">New: @(string.IsNullOrEmpty(_transferNewLabel) ? "â€”" : _transferNewLabel)</div>
+                        }
+                        else
+                        {
+                            <div class="transfer-info-value">@(_years.FirstOrDefault(y => y.Id == _transferToYearId)?.Label ?? "â€”")</div>
+                        }
+                    </div>
+                </div>
+
+                <div class="bgt-field" style="margin-top:1rem;">
+                    <label class="bgt-label">Transfer to</label>
+                    <div class="transfer-mode-row">
+                        <label class="transfer-radio">
+                            <input type="radio" checked="@_transferToNewYear" @onchange="() => _transferToNewYear = true" />
+                            New Academic Year
+                        </label>
+                        <label class="transfer-radio">
+                            <input type="radio" checked="@(!_transferToNewYear)" @onchange="() => _transferToNewYear = false" />
+                            Existing Year
+                        </label>
+                    </div>
+                </div>
+
+                @if (_transferToNewYear)
+                {
+                    <div class="bgt-field">
+                        <label class="bgt-label">New Year Label <span class="req">*</span></label>
+                        <input class="bgt-input" type="text" @bind="_transferNewLabel" placeholder="e.g. 2025-2026" />
+                    </div>
+                }
+                else
+                {
+                    <div class="bgt-field">
+                        <label class="bgt-label">Select Year <span class="req">*</span></label>
+                        <select class="bgt-select" @bind="_transferToYearId">
+                            <option value="0">â€” select â€”</option>
+                            @foreach (var y in _years.Where(y => y.Id != _selectedYear?.Id))
+                            {
+                                <option value="@y.Id">@y.Label</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <div class="bgt-field" style="margin-top:0.75rem;">
+                    <label class="bgt-label">Amount to Transfer (â‚±) <span class="req">*</span></label>
+                    <input class="bgt-input" type="number" step="0.01" min="0.01" @bind="_transferAmount" placeholder="0.00" />
+                    <div class="bgt-field-hint">Net balance: <strong class="@(NetBalance < 0 ? "expense-color" : "income-color")">â‚±@NetBalance.ToString("N2")</strong></div>
+                </div>
+
+                <div class="transfer-note">
+                    The entered amount will be recorded as:
+                    <ul class="transfer-note-list">
+                        <li>Cash Out on A.Y. @(_selectedYear?.Label) â€” <em>"Transfer to A.Y. [target]"</em></li>
+                        <li>Cash In on the target year â€” <em>"Transfer from A.Y. @(_selectedYear?.Label)"</em></li>
+                    </ul>
+                    The target year will become the <strong>active</strong> academic year.
+                </div>
+
+                @if (!string.IsNullOrEmpty(_transferError)) { <div class="bgt-error">@_transferError</div> }
+            </div>
+            <div class="bgt-modal-footer">
+                <button class="bgt-btn-cancel" @onclick="CloseTransferModal">Cancel</button>
+                <button class="bgt-btn-save" style="background:#e5a700;color:#07130a;" @onclick="ProceedTransfer" disabled="@_saving">
+                    @(_saving ? "Transferringâ€¦" : $"Transfer â‚±{_transferAmount.ToString("N2")}")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- â”€â”€ Program Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+@if (_accountModalOpen)
+{
+    <div class="bgt-overlay" @onclick="CloseAccountModal">
+        <div class="bgt-modal" @onclick:stopPropagation="true">
+            <div class="bgt-modal-header">
+                <h3 class="bgt-modal-title">@(_editingAccount ? "Edit Program" : "New Program")</h3>
+            </div>
+            <div class="bgt-modal-body">
+                <div class="bgt-field">
+                    <label class="bgt-label">Title <span class="req">*</span></label>
+                    <input class="bgt-input" type="text" @bind="_accountForm.Title" placeholder="e.g. General Assembly" />
+                </div>
+                <div class="bgt-field">
+                    <label class="bgt-label">Description</label>
+                    <textarea class="bgt-textarea" rows="2" @bind="_accountForm.Description" placeholder="Optional description"></textarea>
+                </div>
+                <div class="bgt-field">
+                    <label class="bgt-label">Target Budget</label>
+                    <input class="bgt-input" type="number" step="0.01" min="0" @bind="_accountForm.TargetBudget" placeholder="0.00" />
+                </div>
+                @if (!string.IsNullOrEmpty(_accountError)) { <div class="bgt-error">@_accountError</div> }
+            </div>
+            <div class="bgt-modal-footer">
+                <button class="bgt-btn-cancel" @onclick="CloseAccountModal">Cancel</button>
+                <button class="bgt-btn-save" @onclick="SaveAccount" disabled="@_saving">@(_saving ? "Savingâ€¦" : "Save")</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- â”€â”€ Transaction Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+@if (_txModalOpen)
+{
+    <div class="bgt-overlay" @onclick="CloseTxModal">
+        <div class="bgt-modal" @onclick:stopPropagation="true">
+            <div class="bgt-modal-header @(_txForm.TransactionType == "Income" ? "header-cashin" : "header-cashout")">
+                <h3 class="bgt-modal-title">
+                    @if (_editingTx) { <span>Edit Transaction</span> }
+                    else if (_txForm.TransactionType == "Income") { <span>+ Cash In</span> }
+                    else { <span>âˆ’ Cash Out</span> }
+                </h3>
+            </div>
+            <div class="bgt-modal-body">
+                <div class="bgt-requester-banner">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Requested by: <strong>@_txRequesterDisplay</strong>
+                    <span class="bgt-req-id">(@(UserState.CurrentUser?.SchoolId ?? "â€”"))</span>
+                </div>
+                <div class="bgt-field">
+                    <label class="bgt-label">Reason <span class="req">*</span></label>
+                    <input class="bgt-input" type="text" @bind="_txForm.Title" placeholder="e.g. Registration fee collected" />
+                </div>
+                <div class="bgt-field">
+                    <label class="bgt-label">Type <span class="req">*</span></label>
+                    <select class="bgt-select" @bind="_txForm.TransactionType">
+                        <option value="Income">Income (Cash In)</option>
+                        <option value="Expense">Expense (Cash Out)</option>
+                    </select>
+                </div>
+                <div class="bgt-field">
+                    <label class="bgt-label">Amount (â‚±) <span class="req">*</span></label>
+                    <input class="bgt-input" type="number" step="0.01" min="0" @bind="_txForm.Amount" placeholder="0.00" />
+                </div>
+                <div class="bgt-field">
+                    <label class="bgt-label">Date <span class="req">*</span></label>
+                    <input class="bgt-input" type="date" value="@_txForm.TransactionDate" @onchange="e => _txForm.TransactionDate = e.Value?.ToString() ?? string.Empty" />
+                </div>
+                <div class="bgt-field">
+                    <label class="bgt-label">Category</label>
+                    <input class="bgt-input" type="text" @bind="_txForm.Category" placeholder="e.g. Food, Transport, Supplies" />
+                </div>
+                <div class="bgt-field">
+                    <label class="bgt-label">Additional Notes</label>
+                    <textarea class="bgt-textarea" rows="2" @bind="_txForm.Description" placeholder="Optional details"></textarea>
+                </div>
+                <div class="bgt-field">
+                    <label class="bgt-label">
+                        Receipt / Evidence
+                        @if (!(_editingTx && _txForm.HasReceipt))
+                        {
+                            <span class="req">*</span>
+                        }
+                    </label>
+                    @if (_editingTx && _txForm.HasReceipt)
+                    {
+                        <div class="bgt-receipt-existing">
+                            <a href="@ApiEndpoints.Budget.TransactionReceipt(_txForm.Id)" target="_blank" class="bgt-receipt-link">View current receipt</a>
+                            <span style="color:rgba(255,255,255,0.35)"> Â· upload below to replace</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="bgt-field-hint" style="margin-bottom:0.4rem;">A receipt or proof of transaction is required.</p>
+                    }
+                    <InputFile OnChange="HandleReceiptFileChange" accept="image/*,application/pdf" class="bgt-file-input" />
+                    @if (!string.IsNullOrEmpty(_receiptUploadStatus))
+                    {
+                        <div class="bgt-receipt-status">@_receiptUploadStatus</div>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(_txError)) { <div class="bgt-error">@_txError</div> }
+            </div>
+            <div class="bgt-modal-footer">
+                <button class="bgt-btn-cancel" @onclick="CloseTxModal">Cancel</button>
+                <button class="bgt-btn-save @(_txForm.TransactionType == "Income" ? "save-cashin" : "save-cashout")" @onclick="SaveTransaction" disabled="@_saving">
+                    @(_saving ? "Savingâ€¦" : (_txForm.TransactionType == "Income" ? "Record Cash In" : "Record Cash Out"))
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- â”€â”€ Delete Confirm â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+@if (_deleteTarget != null || _deleteTxTarget != null)
+{
+    <div class="bgt-overlay" @onclick="CancelDelete">
+        <div class="bgt-modal bgt-modal-sm" @onclick:stopPropagation="true">
+            <div class="bgt-modal-header danger-header">
+                <h3 class="bgt-modal-title danger-title">Confirm Delete</h3>
+            </div>
+            <div class="bgt-modal-body">
+                @if (_deleteTarget != null)
+                {
+                    <p>Delete program <strong>@_deleteTarget.Title</strong> and all its transactions?</p>
+                    <p class="bgt-warn-text">This cannot be undone.</p>
+                }
+                else
+                {
+                    <p>Delete transaction <strong>@_deleteTxTarget!.Title</strong>?</p>
+                }
+            </div>
+            <div class="bgt-modal-footer">
+                <button class="bgt-btn-cancel" @onclick="CancelDelete">Cancel</button>
+                <button class="bgt-btn-delete" @onclick="ProceedDelete" disabled="@_saving">@(_saving ? "Deletingâ€¦" : "Delete")</button>
+            </div>
+        </div>
+    </div>
+}
+
+<SuccessPopup IsVisible="_showSuccess" Message="@_successMessage" OnOkClick="() => _showSuccess = false" />
+
+@code {
+    [Parameter] public bool ViewOnly { get; set; }
+
+    // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private List<AcademicYearViewModel> _years = new();
+    private AcademicYearViewModel? _selectedYear;
+
+    private List<BudgetAccountViewModel> _accounts = new();
+    private bool _loading = true;
+    private BudgetAccountViewModel? _selectedAccount;
+
+    private string _txTab = "overview";
+    private string _programsTab = "active";
+    private List<BudgetAccountViewModel> _pendingAccountsList = new();
+    private bool _saving;
+
+    // New Academic Year modal
+    private bool _newYearModalOpen;
+    private string _newYearLabel = "";
+    private string _newYearError = "";
+
+    // Transfer modal
+    private bool _transferModalOpen;
+    private bool _transferToNewYear = true;
+    private string _transferNewLabel = "";
+    private int _transferToYearId;
+    private decimal _transferAmount;
+    private string _transferError = "";
+
+    // Program modal
+    private bool _accountModalOpen;
+    private bool _editingAccount;
+    private BudgetAccountViewModel _accountForm = new();
+    private string _accountError = "";
+
+    // Transaction modal
+    private bool _txModalOpen;
+    private bool _editingTx;
+    private BudgetTransactionViewModel _txForm = new();
+    private string _txError = "";
+    private string _txRequesterDisplay = "";
+
+    // Delete
+    private BudgetAccountViewModel? _deleteTarget;
+    private BudgetTransactionViewModel? _deleteTxTarget;
+
+    // Success popup
+    private bool _showSuccess { get; set; }
+    private string _successMessage = "Operation successful.";
+
+    // Receipt upload
+    private string _receiptUploadStatus = "";
+
+    // â”€â”€ Computed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private BudgetAccountViewModel? MainAccount => _accounts.FirstOrDefault(a => a.AccountType == "Main");
+    private List<BudgetTransactionViewModel> MainDirectTransactions => MainAccount?.Transactions ?? new();
+    private List<BudgetAccountViewModel> ProgramAccounts => _accounts.Where(a => a.AccountType == "Program").ToList();
+
+    private decimal TotalAllIncome  => _accounts.Sum(a => a.TotalIncome);
+    private decimal TotalAllExpense => _accounts.Sum(a => a.TotalExpense);
+    private decimal NetBalance      => TotalAllIncome - TotalAllExpense;
+
+    private IEnumerable<(string Category, decimal Total)> SelectedCategories =>
+        _selectedAccount?.Transactions
+            .Where(t => t.TransactionType == "Expense" && !string.IsNullOrEmpty(t.Category))
+            .GroupBy(t => t.Category!).Select(g => (Category: g.Key, Total: g.Sum(t => t.Amount)))
+            .OrderByDescending(g => g.Total)
+        ?? Enumerable.Empty<(string, decimal)>();
+
+    private IEnumerable<(string Category, decimal Total)> OverviewExpenseBreakdown =>
+        MainDirectTransactions
+            .Where(t => t.TransactionType == "Expense" && !string.IsNullOrEmpty(t.Category))
+            .GroupBy(t => t.Category!).Select(g => (Category: g.Key, Total: g.Sum(t => t.Amount)))
+            .OrderByDescending(g => g.Total);
+
+    private List<(BudgetTransactionViewModel Tx, string AccountTitle)> AllTransactions =>
+        _accounts
+            .SelectMany(a => a.Transactions.Select(t => (Tx: t, AccountTitle: a.AccountType == "Main" ? "Overall" : a.Title)))
+            .OrderByDescending(x => x.Tx.TransactionDate).ThenByDescending(x => x.Tx.Id)
+            .ToList();
+
+    // â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+
+        _years = await BudgetService.GetYearsAsync();
+
+        if (!_years.Any())
+        {
+            var label = AutoYearLabel();
+            var created = await BudgetService.CreateYearAsync(new AcademicYearViewModel { Label = label, IsCurrent = true });
+            if (created != null) _years = await BudgetService.GetYearsAsync();
+        }
+
+        // Determine selected year: keep current selection if still valid, else pick the current/first
+        if (_selectedYear != null)
+            _selectedYear = _years.FirstOrDefault(y => y.Id == _selectedYear.Id) ?? _years.FirstOrDefault(y => y.IsCurrent) ?? _years.FirstOrDefault();
+        else
+            _selectedYear = _years.FirstOrDefault(y => y.IsCurrent) ?? _years.FirstOrDefault();
+
+        await LoadAccountsAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAccountsAsync()
+    {
+        if (_selectedYear == null) { _accounts = new(); _pendingAccountsList = new(); return; }
+
+        var approvedTask = BudgetService.GetAccountsAsync(_selectedYear.Id);
+        var pendingTask  = BudgetService.GetPendingAccountsAsync();
+        await Task.WhenAll(approvedTask, pendingTask);
+
+        _accounts = await approvedTask;
+        _pendingAccountsList = (await pendingTask)
+            .Where(a => a.AcademicYearId == _selectedYear.Id)
+            .ToList();
+
+        if (!_accounts.Any(a => a.AccountType == "Main"))
+        {
+            await BudgetService.CreateAccountAsync(new BudgetAccountViewModel
+            {
+                Title = "Overall Fund",
+                AccountType = "Main",
+                AcademicYearId = _selectedYear.Id
+            });
+            _accounts = await BudgetService.GetAccountsAsync(_selectedYear.Id);
+        }
+
+        if (_selectedAccount != null)
+            _selectedAccount = _accounts.FirstOrDefault(a => a.Id == _selectedAccount.Id);
+    }
+
+    private static string AutoYearLabel()
+    {
+        var now = DateTime.Now;
+        var start = now.Month >= 6 ? now.Year : now.Year - 1;
+        return $"{start}-{start + 1}";
+    }
+
+    // â”€â”€ Year selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private async Task OnYearChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var id)) return;
+        _selectedYear = _years.FirstOrDefault(y => y.Id == id);
+        _selectedAccount = null;
+        _txTab = "overview";
+
+        // Show loading immediately
+        _loading = true;
+        StateHasChanged();
+
+        // Load accounts in background
+        _ = LoadAccountsInBackground();
+    }
+
+    private async Task LoadAccountsInBackground()
+    {
+        await LoadAccountsAsync();
+        _loading = false;
+    }
+
+    // â”€â”€ New Academic Year modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private void OpenNewYearModal()
+    {
+        _newYearLabel = "";
+        _newYearError = "";
+        _newYearModalOpen = true;
+    }
+
+    private void CloseNewYearModal() => _newYearModalOpen = false;
+
+    private async Task SaveNewYear()
+    {
+        if (string.IsNullOrWhiteSpace(_newYearLabel)) { _newYearError = "Label is required."; return; }
+        _saving = true;
+        _newYearError = "";
+        var created = await BudgetService.CreateYearAsync(new AcademicYearViewModel { Label = _newYearLabel.Trim() });
+        _saving = false;
+        if (created == null) { _newYearError = "Failed to create academic year."; return; }
+        _newYearModalOpen = false;
+        await LoadAsync();
+        _successMessage = "Academic year created.";
+        _showSuccess = true;
+    }
+
+    // â”€â”€ Transfer modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private void OpenTransferModal()
+    {
+        _transferToNewYear = true;
+        _transferNewLabel = "";
+        _transferToYearId = 0;
+        _transferAmount = NetBalance > 0 ? NetBalance : 0;
+        _transferError = "";
+        _transferModalOpen = true;
+    }
+
+    private void CloseTransferModal() => _transferModalOpen = false;
+
+    private async Task ProceedTransfer()
+    {
+        if (_transferAmount <= 0)
+        {
+            _transferError = "Transfer amount must be greater than zero."; return;
+        }
+        if (_transferAmount > NetBalance)
+        {
+            _transferError = $"Amount exceeds the net balance of â‚±{NetBalance.ToString("N2")}."; return;
+        }
+        if (_transferToNewYear && string.IsNullOrWhiteSpace(_transferNewLabel))
+        {
+            _transferError = "New year label is required."; return;
+        }
+        if (!_transferToNewYear && _transferToYearId == 0)
+        {
+            _transferError = "Please select a target academic year."; return;
+        }
+
+        _saving = true;
+        _transferError = "";
+
+        var result = await BudgetService.TransferBudgetAsync(new TransferBudgetViewModel
+        {
+            FromYearId = _selectedYear!.Id,
+            ToYearId = _transferToNewYear ? 0 : _transferToYearId,
+            NewYearLabel = _transferToNewYear ? _transferNewLabel.Trim() : null,
+            CreatedBy = UserState.CurrentUser?.SchoolId,
+            RequestedByName = GetRequesterDisplay(),
+            Amount = _transferAmount
+        });
+
+        _saving = false;
+
+        if (result == null) { _transferError = "Transfer failed. Please try again."; return; }
+
+        _transferModalOpen = false;
+
+        // Switch view to the new current year
+        _selectedYear = null;
+        await LoadAsync();
+        _successMessage = "Budget transferred successfully.";
+        _showSuccess = true;
+    }
+
+    // â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private void SelectOverview() { _selectedAccount = null; _txTab = "overview"; }
+    private void SelectAccount(BudgetAccountViewModel acct) { _selectedAccount = acct; _txTab = "overview"; }
+
+    // â”€â”€ Program modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private void OpenAccountModal(bool editing, BudgetAccountViewModel? acct = null)
+    {
+        _editingAccount = editing;
+        _accountError = "";
+        _accountForm = editing && acct != null
+            ? new BudgetAccountViewModel { Id = acct.Id, Title = acct.Title, Description = acct.Description, AccountType = acct.AccountType, TargetBudget = acct.TargetBudget, AcademicYearId = acct.AcademicYearId }
+            : new BudgetAccountViewModel { AccountType = "Program", AcademicYearId = _selectedYear?.Id };
+        _accountModalOpen = true;
+    }
+
+    private void CloseAccountModal() => _accountModalOpen = false;
+
+    private async Task SaveAccount()
+    {
+        if (string.IsNullOrWhiteSpace(_accountForm.Title)) { _accountError = "Title is required."; return; }
+        if (_accountForm.TargetBudget < 0) { _accountError = "Target budget cannot be negative."; return; }
+        _saving = true;
+        _accountError = "";
+        _accountForm.CreatedBy = UserState.CurrentUser?.SchoolId;
+        if (_editingAccount) await BudgetService.UpdateAccountAsync(_accountForm);
+        else await BudgetService.CreateAccountAsync(_accountForm);
+        _saving = false;
+        _accountModalOpen = false;
+        await LoadAccountsAsync();
+        _successMessage = _editingAccount ? "Program updated successfully." : "Program submitted for adviser approval.";
+        _showSuccess = true;
+    }
+
+    // â”€â”€ Transaction modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private string GetRequesterDisplay() =>
+        UserState.CurrentUser is { } u && (!string.IsNullOrEmpty(u.FirstName) || !string.IsNullOrEmpty(u.LastName))
+            ? $"{u.FirstName} {u.LastName}".Trim()
+            : UserState.CurrentUser?.SchoolId ?? "Unknown";
+
+    private void OpenOverallTxModal(string type)
+    {
+        _editingTx = false; _txError = ""; _receiptUploadStatus = "";
+        _txRequesterDisplay = GetRequesterDisplay();
+        _txForm = new BudgetTransactionViewModel { BudgetAccountId = MainAccount!.Id, TransactionDate = DateTime.Today.ToString("yyyy-MM-dd"), TransactionType = type };
+        _txModalOpen = true;
+    }
+
+    private void OpenProgramTxModal(string type)
+    {
+        _editingTx = false; _txError = ""; _receiptUploadStatus = "";
+        _txRequesterDisplay = GetRequesterDisplay();
+        _txForm = new BudgetTransactionViewModel { BudgetAccountId = _selectedAccount!.Id, TransactionDate = DateTime.Today.ToString("yyyy-MM-dd"), TransactionType = type };
+        _txModalOpen = true;
+    }
+
+    private void OpenEditTransactionModal(BudgetTransactionViewModel tx)
+    {
+        _editingTx = true; _txError = ""; _receiptUploadStatus = "";
+        _txRequesterDisplay = tx.RequestedByName ?? tx.CreatedBy ?? GetRequesterDisplay();
+        _txForm = new BudgetTransactionViewModel { Id = tx.Id, BudgetAccountId = tx.BudgetAccountId, Title = tx.Title, Description = tx.Description, Category = tx.Category, Amount = tx.Amount, TransactionType = tx.TransactionType, TransactionDate = tx.TransactionDate, CreatedBy = tx.CreatedBy, RequestedByName = tx.RequestedByName, HasReceipt = tx.HasReceipt };
+        _txModalOpen = true;
+    }
+
+    private void CloseTxModal() { _txModalOpen = false; _receiptUploadStatus = ""; }
+
+    private async Task HandleReceiptFileChange(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        _receiptUploadStatus = "Reading file...";
+        try
+        {
+            using var ms = new System.IO.MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(ms);
+            _txForm.ReceiptBase64 = Convert.ToBase64String(ms.ToArray());
+            _txForm.ReceiptMimeType = file.ContentType;
+            _receiptUploadStatus = $"Ready: {file.Name}";
+        }
+        catch
+        {
+            _receiptUploadStatus = "Failed â€” max 10 MB.";
+        }
+    }
+
+    private async Task SaveTransaction()
+    {
+        if (string.IsNullOrWhiteSpace(_txForm.Title)) { _txError = "Reason is required."; return; }
+        if (_txForm.Amount <= 0) { _txError = "Amount must be greater than zero."; return; }
+        var hasExistingReceipt = _editingTx && _txForm.HasReceipt;
+        if (!hasExistingReceipt && string.IsNullOrEmpty(_txForm.ReceiptBase64))
+        {
+            _txError = "A receipt or proof of transaction is required. Please upload an image or PDF.";
+            return;
+        }
+        _saving = true; _txError = "";
+        _txForm.CreatedBy = UserState.CurrentUser?.SchoolId;
+        if (!_editingTx) _txForm.RequestedByName = GetRequesterDisplay();
+        if (_editingTx) await BudgetService.UpdateTransactionAsync(_txForm);
+        else await BudgetService.CreateTransactionAsync(_txForm);
+        _saving = false; _txModalOpen = false;
+        await LoadAccountsAsync();
+        _successMessage = _editingTx ? "Transaction updated." : "Transaction submitted for adviser approval.";
+        _showSuccess = true;
+    }
+
+    // â”€â”€ Delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private void ConfirmDeleteAccount(BudgetAccountViewModel acct) { _deleteTarget = acct; _deleteTxTarget = null; }
+    private void ConfirmDeleteTransaction(BudgetTransactionViewModel tx) { _deleteTxTarget = tx; _deleteTarget = null; }
+    private void CancelDelete() { _deleteTarget = null; _deleteTxTarget = null; }
+
+    private async Task ProceedDelete()
+    {
+        if (_deleteTarget != null)
+        {
+            var acct = _deleteTarget;
+            var idx = _accounts.IndexOf(acct);
+            if (_selectedAccount?.Id == acct.Id) _selectedAccount = null;
+            _accounts.Remove(acct);
+            _deleteTarget = null;
+
+            _saving = true;
+            var ok = await BudgetService.DeleteAccountAsync(acct.Id);
+            _saving = false;
+            if (!ok) { _accounts.Insert(Math.Max(0, idx), acct); return; }
+        }
+        else if (_deleteTxTarget != null)
+        {
+            var tx = _deleteTxTarget;
+            var parentAcct = _accounts.FirstOrDefault(a => a.Transactions?.Any(t => t.Id == tx.Id) == true);
+            var txIdx = parentAcct?.Transactions?.IndexOf(tx) ?? -1;
+            parentAcct?.Transactions?.Remove(tx);
+            _deleteTxTarget = null;
+
+            _saving = true;
+            var ok = await BudgetService.DeleteTransactionAsync(tx.Id);
+            _saving = false;
+            if (!ok && parentAcct?.Transactions != null)
+            {
+                if (txIdx >= 0) parentAcct.Transactions.Insert(txIdx, tx);
+                return;
+            }
+        }
+        _successMessage = "Deleted successfully.";
+        _showSuccess = true;
+    }
+
+    // â”€â”€ CSV Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private async Task ExportOverviewToCsv()
+    {
+        if (MainAccount == null) return;
+        await JS.InvokeVoidAsync("downloadCsv", $"overall-{_selectedYear?.Label}-{DateTime.Today:yyyy-MM-dd}.csv", BuildCsv(MainAccount, "Overall Fund"));
+    }
+
+    private async Task ExportProgramToCsv(BudgetAccountViewModel prog)
+    {
+        await JS.InvokeVoidAsync("downloadCsv", $"{prog.Title.Replace(" ", "-")}-{DateTime.Today:yyyy-MM-dd}.csv", BuildCsv(prog, prog.Title));
+    }
+
+    private string BuildCsv(BudgetAccountViewModel account, string label)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Academic Year,{EscapeCsv(_selectedYear?.Label ?? "")}");
+        sb.AppendLine($"Account,{EscapeCsv(label)}");
+        if (account.AccountType == "Program" && account.TargetBudget > 0)
+            sb.AppendLine($"Target Budget,{account.TargetBudget:N2}");
+        sb.AppendLine($"Total Income,{account.TotalIncome:N2}");
+        sb.AppendLine($"Total Expense,{account.TotalExpense:N2}");
+        sb.AppendLine($"Balance,{account.Balance:N2}");
+        sb.AppendLine();
+        sb.AppendLine("Date,Reason,Type,Category,Amount,Description,Requested By,School ID");
+        foreach (var tx in account.Transactions.OrderByDescending(t => t.TransactionDate))
+            sb.AppendLine($"{tx.TransactionDate},{EscapeCsv(tx.Title)},{tx.TransactionType},{EscapeCsv(tx.Category ?? "")},{tx.Amount:N2},{EscapeCsv(tx.Description ?? "")},{EscapeCsv(tx.RequestedByName ?? "")},{EscapeCsv(tx.CreatedBy ?? "")}");
+        return sb.ToString();
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+
+    // â”€â”€ Shared tx row render fragment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private RenderFragment TxRow(BudgetTransactionViewModel tx) => __builder =>
+    {
+        <div class="tx-row">
+            <div class="tx-type-dot @(tx.TransactionType == "Income" ? "income-dot-lg" : "expense-dot-lg")"></div>
+            <div class="tx-info">
+                <div class="tx-title">@tx.Title</div>
+                <div class="tx-meta">
+                    @tx.TransactionDate
+                    @if (!string.IsNullOrEmpty(tx.Category)) { <span class="tx-cat-chip">@tx.Category</span> }
+                    @if (!string.IsNullOrEmpty(tx.Description)) { <span class="tx-desc">Â· @tx.Description</span> }
+                </div>
+                @if (!string.IsNullOrEmpty(tx.RequestedByName))
+                {
+                    <div class="tx-requester">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        @tx.RequestedByName
+                        @if (!string.IsNullOrEmpty(tx.CreatedBy)) { <span class="tx-school-id">(@tx.CreatedBy)</span> }
+                    </div>
+                }
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+                <div class="tx-amount @(tx.TransactionType == "Income" ? "income-amount" : "expense-amount")">
+                    @(tx.TransactionType == "Income" ? "+" : "âˆ’")â‚±@tx.Amount.ToString("N2")
+                </div>
+                @if (tx.ApprovalStatus == "Pending")
+                {
+                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.15);color:#f59e0b;font-weight:600;">Pending</span>
+                }
+                else if (tx.ApprovalStatus == "Rejected")
+                {
+                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(239,68,68,.12);color:#ef4444;font-weight:600;" title="@tx.RejectionReason">Rejected</span>
+                }
+            </div>
+            <div class="tx-actions">
+                @if (tx.HasReceipt)
+                {
+                    <a href="@ApiEndpoints.Budget.TransactionReceipt(tx.Id)" target="_blank" class="tx-btn-receipt" title="View receipt">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    </a>
+                }
+                @if (!ViewOnly)
+                {
+                    <button class="tx-btn-edit" @onclick="() => OpenEditTransactionModal(tx)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="tx-btn-del" @onclick="() => ConfirmDeleteTransaction(tx)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                }
+            </div>
+        </div>
+    };
+}

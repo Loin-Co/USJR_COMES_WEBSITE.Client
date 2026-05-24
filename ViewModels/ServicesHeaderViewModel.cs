@@ -1,0 +1,7 @@
+namespace USJR_COMES_WEBSITE.ViewModels;
+
+public class ServicesHeaderViewModel
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+}

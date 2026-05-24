@@ -1,0 +1,1298 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.APIs
+@inject ISiteSettingsService SettingsService
+@inject IJSRuntime JS
+@inject USJR_COMES_WEBSITE.Services.UserStateService UserState
+@inject IHttpClientFactory HttpClientFactory
+
+<div class="page-edit-wrap">
+    <div class="page-edit-header">
+        <h2 class="page-edit-title">Page Edit</h2>
+        @if (CanDirectSave)
+        {
+            <p class="page-edit-subtitle">Customize the site appearance. Changes preview in the panel on the right — click Save to apply site-wide.</p>
+        }
+        else
+        {
+            <p class="page-edit-subtitle">Customize the site appearance. Changes preview in the panel on the right and won't go live until an adviser approves.</p>
+        }
+    </div>
+
+    <!-- Tab selector -->
+    <div class="pe-tabs">
+        <button class="pe-tab @(_tab == "bg" ? "active" : "")" @onclick='() => _tab = "bg"'>Background 1</button>
+        <button class="pe-tab @(_tab == "pattern" ? "active" : "")" @onclick='() => _tab = "pattern"'>Background 2</button>
+        <button class="pe-tab @(_tab == "nav" ? "active" : "")" @onclick='() => _tab = "nav"'>Navbar</button>
+        <button class="pe-tab @(_tab == "header" ? "active" : "")" @onclick='() => _tab = "header"'>Header</button>
+        <button class="pe-tab @(_tab == "footer" ? "active" : "")" @onclick='() => _tab = "footer"'>Footer</button>
+        <button class="pe-tab @(_tab == "robot" ? "active" : "")" @onclick='() => _tab = "robot"'>Robot</button>
+        <button class="pe-tab @(_tab == "theme" ? "active" : "")" @onclick='() => _tab = "theme"'>Theme</button>
+    </div>
+
+    <div class="pe-body">
+    <div class="pe-controls">
+
+    <!-- ── BACKGROUND TAB ── -->
+    @if (_tab == "bg")
+    {
+        <div class="pe-section">
+            <div class="pe-type-row">
+                <button class="pe-type-btn @(_bgType == "color" ? "active" : "")" @onclick='() => SetBgType("color")'>Color</button>
+                <button class="pe-type-btn @(_bgType == "gradient" ? "active" : "")" @onclick='() => SetBgType("gradient")'>Gradient</button>
+                <button class="pe-type-btn @(_bgType == "image" ? "active" : "")" @onclick='() => SetBgType("image")'>Image</button>
+            </div>
+
+            @if (_bgType == "color")
+            {
+                <div class="pe-section-label" style="margin-top:1.25rem;">Theme Presets</div>
+                <div class="pe-presets-grid">
+                    @foreach (var p in _colorPresets)
+                    {
+                        <button class="pe-preset-swatch @(_activeKey == p.Key ? "active" : "")"
+                                style="background: @p.Preview" title="@p.Label"
+                                @onclick="() => ApplyColorPreset(p)">
+                            <span class="pe-preset-label">@p.Label</span>
+                        </button>
+                    }
+                </div>
+                <div class="pe-section-label" style="margin-top:1.25rem;">Custom Color</div>
+                <div class="pe-custom-color-row">
+                    <input type="color" class="pe-color-input" value="@_bgColor"
+                           @oninput="OnBgColorInput" />
+                    <span class="pe-color-hex">@_bgColor</span>
+                </div>
+            }
+
+            @if (_bgType == "gradient")
+            {
+                <div class="pe-section-label" style="margin-top:1.25rem;">Gradient Presets</div>
+                <div class="pe-presets-grid">
+                    @foreach (var g in _gradientPresets)
+                    {
+                        <button class="pe-preset-swatch @(_activeKey == g.Key ? "active" : "")"
+                                style="background: @g.Preview" title="@g.Label"
+                                @onclick="() => ApplyGradientPreset(g)">
+                            <span class="pe-preset-label">@g.Label</span>
+                        </button>
+                    }
+                </div>
+            }
+
+            @if (_bgType == "image")
+            {
+                <div class="pe-section-label" style="margin-top:1.25rem;">Upload Image</div>
+                <InputFile OnChange="HandleBgImageUpload" accept="image/*" class="pe-file-input" />
+                @if (!string.IsNullOrEmpty(_bgImageUploadStatus))
+                {
+                    <div class="pe-upload-status">@_bgImageUploadStatus</div>
+                }
+                @if (_hasBgImage || !string.IsNullOrEmpty(_bgImagePreviewDataUrl))
+                {
+                    <div class="pe-image-preview-row">
+                        <img src="@(_bgImagePreviewDataUrl.Length > 0 ? _bgImagePreviewDataUrl : ApiEndpoints.SiteSettings.BackgroundImage)"
+                             class="pe-image-thumb" alt="bg preview" />
+                        <button class="pe-clear-btn" @onclick="ClearBgImage">Remove Image</button>
+                    </div>
+                }
+
+                <div class="pe-section-label" style="margin-top:1.25rem;">Aspect / Size</div>
+                <select class="pe-select" @bind="_bgSize" @bind:after="Preview">
+                    <option value="cover">Cover (fill, may crop)</option>
+                    <option value="contain">Contain (fit, no crop)</option>
+                    <option value="auto">Auto (original size)</option>
+                    <option value="100% 100%">Stretch (fill exactly)</option>
+                    <option value="custom">Custom (set px / %)</option>
+                </select>
+
+                @if (_bgSize == "custom")
+                {
+                    <div class="pe-size-custom-row">
+                        <div class="pe-size-custom-field">
+                            <label class="pe-size-label">Width</label>
+                            <input type="number" class="pe-number-input" value="@_bgCustomW"
+                                   min="1" max="9999"
+                                   @oninput="OnBgCustomWInput" />
+                            <span class="pe-size-unit">%</span>
+                        </div>
+                        <div class="pe-size-custom-field">
+                            <label class="pe-size-label">Height</label>
+                            <input type="number" class="pe-number-input" value="@_bgCustomH"
+                                   min="1" max="9999"
+                                   @oninput="OnBgCustomHInput" />
+                            <span class="pe-size-unit">%</span>
+                        </div>
+                    </div>
+                    <p class="pe-hint">e.g. 120 × 80 renders as <code>120% 80%</code></p>
+                }
+
+                <div class="pe-section-label" style="margin-top:1rem;">Position</div>
+                <select class="pe-select" @bind="_bgPosition" @bind:after="Preview">
+                    <option value="center">Center</option>
+                    <option value="top">Top</option>
+                    <option value="bottom">Bottom</option>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                    <option value="top left">Top Left</option>
+                    <option value="top right">Top Right</option>
+                    <option value="bottom left">Bottom Left</option>
+                    <option value="bottom right">Bottom Right</option>
+                </select>
+
+                <div class="pe-section-label" style="margin-top:1rem;">Opacity <span class="pe-range-val">@(_bgOpacity.ToString("P0"))</span></div>
+                <input type="range" min="0.05" max="1" step="0.05"
+                       class="pe-range"
+                       value="@_bgOpacity"
+                       @oninput="OnOpacityInput" />
+            }
+        </div>
+    }
+
+    <!-- ── PATTERN TAB (Background 2) ── -->
+    @if (_tab == "pattern")
+    {
+        <div class="pe-section">
+            <p class="pe-hint" style="margin-bottom:1.25rem;">
+                Background 2 overlays on top of Background 1. Choose a pattern or set it to None.
+            </p>
+            <div class="pe-pattern-grid">
+                @foreach (var p in _patternPresets)
+                {
+                    <button class="pe-pattern-card @(_bgPattern == p.Key ? "active" : "")"
+                            @onclick="() => SetPattern(p.Key)">
+                        <div class="pe-pattern-preview @("pprev-" + p.Key)"></div>
+                        <span class="pe-pattern-label">@p.Label</span>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- ── NAVBAR TAB ── -->
+    @if (_tab == "nav")
+    {
+        <div class="pe-section">
+            <div class="pe-section-label">Navbar Background Color</div>
+            <p class="pe-hint">Leave blank to use the default dark green. Supports any CSS color (hex, rgba, etc.)</p>
+            <div class="pe-custom-color-row">
+                <input type="color" class="pe-color-input" value="@_navbarColor"
+                       @oninput="OnNavbarColorInput" />
+                <span class="pe-color-hex">@_navbarColor</span>
+                <button class="pe-clear-btn" @onclick="ClearNavbarColor">Reset to Default</button>
+            </div>
+            <div class="pe-section-label" style="margin-top:1.5rem;">Navbar Presets</div>
+            <div class="pe-presets-grid">
+                @foreach (var p in _navbarPresets)
+                {
+                    <button class="pe-preset-swatch @(_navbarColor == p.Value ? "active" : "")"
+                            style="background: @p.Value" title="@p.Label"
+                            @onclick="() => ApplyNavbarPreset(p.Value)">
+                        <span class="pe-preset-label">@p.Label</span>
+                    </button>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- ── HEADER TAB ── -->
+    @if (_tab == "header")
+    {
+        <div class="pe-section">
+            <div class="pe-section-label">Organization Name</div>
+            <input type="text" class="pe-text-input" value="@_headerOrgName"
+                   @oninput="OnHeaderOrgNameInput" placeholder="Organization name shown at top" maxlength="200" />
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Tagline / Quote</div>
+            <input type="text" class="pe-text-input" value="@_headerOrgQuote"
+                   @oninput="OnHeaderOrgQuoteInput" placeholder="Tagline shown below the org name" maxlength="500" />
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Header Logo</div>
+            <InputFile OnChange="HandleLogoUpload" accept="image/*" class="pe-file-input" />
+            @if (!string.IsNullOrEmpty(_logoUploadStatus))
+            {
+                <div class="pe-upload-status">@_logoUploadStatus</div>
+            }
+            @if (_hasHeaderLogo || !string.IsNullOrEmpty(_logoPreviewDataUrl))
+            {
+                <div class="pe-image-preview-row">
+                    <img src="@(_logoPreviewDataUrl.Length > 0 ? _logoPreviewDataUrl : ApiEndpoints.SiteSettings.HeaderLogo)"
+                         class="pe-logo-thumb" alt="logo preview" />
+                    <button class="pe-clear-btn" @onclick="ClearHeaderLogo">Remove Logo</button>
+                </div>
+            }
+            <p class="pe-hint">If no logo is uploaded, the default COMES SVG logo is used.</p>
+
+            <div class="pe-section-label" style="margin-top:1.5rem;">Header Logo Size <span class="pe-range-val">@_headerLogoHeight px</span></div>
+            <div class="pe-size-slider-row">
+                <input type="range" min="10" max="400" step="1"
+                       class="pe-range"
+                       value="@_headerLogoHeight"
+                       @oninput="OnHeaderLogoHeightInput" />
+                <input type="number" class="pe-number-input" value="@_headerLogoHeight"
+                       min="10" max="400"
+                       @oninput="OnHeaderLogoHeightInput" />
+                <span class="pe-size-unit">px</span>
+            </div>
+
+        </div>
+    }
+
+    <!-- ── FOOTER TAB ── -->
+    @if (_tab == "footer")
+    {
+        <div class="pe-section">
+            <div class="pe-section-label">Footer Logo Size <span class="pe-range-val">@_footerLogoHeight px</span></div>
+            <div class="pe-size-slider-row">
+                <input type="range" min="10" max="300" step="1"
+                       class="pe-range"
+                       value="@_footerLogoHeight"
+                       @oninput="OnFooterLogoHeightInput" />
+                <input type="number" class="pe-number-input" value="@_footerLogoHeight"
+                       min="10" max="300"
+                       @oninput="OnFooterLogoHeightInput" />
+                <span class="pe-size-unit">px</span>
+            </div>
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Footer Subtitle</div>
+            <input type="text" class="pe-text-input" value="@_footerOrgSub"
+                   @oninput="OnFooterOrgSubInput" placeholder="Subtitle shown under the org name" maxlength="500" />
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Facebook URL</div>
+            <input type="url" class="pe-text-input" value="@_footerFacebookUrl"
+                   @oninput="OnFooterFacebookUrlInput" placeholder="https://www.facebook.com/..." maxlength="500" />
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Website URL</div>
+            <input type="url" class="pe-text-input" value="@_footerWebsiteUrl"
+                   @oninput="OnFooterWebsiteUrlInput" placeholder="https://..." maxlength="500" />
+        </div>
+    }
+
+    <!-- ── ROBOT TAB ── -->
+    @if (_tab == "robot")
+    {
+        <div class="pe-section">
+            <p class="pe-hint" style="margin-bottom:1.25rem;">
+                Edit the text shown in the hero section on the home page.
+            </p>
+
+            <div class="pe-section-label">Overlay Text (ADELANTE)</div>
+            <input type="text" class="pe-text-input" value="@_robotAdelanteText"
+                   @oninput="OnRobotAdelanteInput" placeholder="e.g. ADELANTE" maxlength="200" />
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Society Strip Text</div>
+            <input type="text" class="pe-text-input" value="@_robotSocietyText"
+                   @oninput="OnRobotSocietyInput" placeholder="e.g. USJ-R Computer Engineering Society" maxlength="200" />
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Abbreviation (CpES)</div>
+            <input type="text" class="pe-text-input" value="@_robotAbbreviation"
+                   @oninput="OnRobotAbbreviationInput" placeholder="e.g. CpES" maxlength="50" />
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Tagline</div>
+            <p class="pe-hint">Use new lines to break text (each line renders on its own row).</p>
+            <textarea class="pe-text-input" rows="4"
+                      @oninput="OnRobotTaglineInput"
+                      placeholder="e.g. BUILDING THE&#10;FUTURE&#10;THROUGH&#10;ENGINEERING">@_robotTagline</textarea>
+        </div>
+    }
+
+    <!-- ── THEME TAB ── -->
+    @if (_tab == "theme")
+    {
+        <div class="pe-section">
+            <p class="pe-hint" style="margin-bottom:1.25rem;">
+                Customize the site's accent color, text color, and font. Changes preview immediately; click Save to apply site-wide.
+            </p>
+
+            <div class="pe-section-label">Color Theme Presets</div>
+            <div class="pe-presets-grid">
+                @foreach (var p in _themePresets)
+                {
+                    <button class="pe-preset-swatch @(_themePresetKey == p.Key ? "active" : "")"
+                            style="background: linear-gradient(135deg, @p.Accent 0%, @p.AccentBright 100%);"
+                            title="@p.Label"
+                            @onclick="() => ApplyThemePreset(p)">
+                        <span class="pe-preset-label">@p.Label</span>
+                    </button>
+                }
+            </div>
+
+            <div class="pe-section-label" style="margin-top:1.5rem;">Accent Color</div>
+            <div class="pe-custom-color-row">
+                <input type="color" class="pe-color-input" value="@_themeAccent"
+                       @oninput="OnThemeAccentInput" />
+                <span class="pe-color-hex">@_themeAccent</span>
+            </div>
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Highlight / Bright Color</div>
+            <div class="pe-custom-color-row">
+                <input type="color" class="pe-color-input" value="@_themeAccentBright"
+                       @oninput="OnThemeAccentBrightInput" />
+                <span class="pe-color-hex">@_themeAccentBright</span>
+            </div>
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Text Color</div>
+            <div class="pe-custom-color-row">
+                <input type="color" class="pe-color-input" value="@_themeTextColor"
+                       @oninput="OnThemeTextColorInput" />
+                <span class="pe-color-hex">@_themeTextColor</span>
+            </div>
+
+            <div class="pe-section-label" style="margin-top:1.5rem;">Font Family</div>
+            <select class="pe-select" value="@_themeFontFamily"
+                    @onchange="OnThemeFontFamilyChange">
+                <option value="default">Default (System)</option>
+                <option value="inter">Inter</option>
+                <option value="roboto">Roboto</option>
+                <option value="orbitron">Orbitron</option>
+                <option value="sharetech">Share Tech Mono</option>
+                <option value="exo2">Exo 2</option>
+                <option value="pressstart">Press Start 2P</option>
+            </select>
+
+            <div class="pe-section-label" style="margin-top:1.25rem;">Font Size <span class="pe-range-val">@_themeFontSize%</span></div>
+            <input type="range" min="80" max="130" step="5"
+                   class="pe-range"
+                   value="@_themeFontSize"
+                   @oninput="OnThemeFontSizeInput" />
+            <p class="pe-hint">Default is 100%. Adjust for accessibility or personal preference.</p>
+        </div>
+    }
+
+    </div><!-- /pe-controls -->
+
+    <!-- ── PREVIEW COLUMN ── -->
+    <div class="pe-preview-column">
+        <div class="pe-preview-panel">
+            <div class="pe-preview-label-row">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span class="pe-preview-title">Preview</span>
+                <span class="pe-preview-hint">Changes only appear here until submitted</span>
+            </div>
+            <div class="pe-preview-window">
+
+                @* ── Background 1 preview ── *@
+                @if (_tab == "bg")
+                {
+                    <div class="pe-pw-bg-wrap">
+                        <div class="pe-pw-bg-layer" style="background:@GetPreviewBgCss(); opacity:@_bgOpacity.ToString("F2", System.Globalization.CultureInfo.InvariantCulture); background-size:@GetEffectiveBgSize(); background-position:@_bgPosition; background-repeat:no-repeat;"></div>
+                        <div class="pe-pw-skeleton">
+                            <div class="pe-pw-skel-nav"></div>
+                            <div class="pe-pw-skel-hero">
+                                <div class="pe-pw-skel-line pe-pw-skel-w60"></div>
+                                <div class="pe-pw-skel-line pe-pw-skel-w40"></div>
+                                <div class="pe-pw-skel-line pe-pw-skel-w50"></div>
+                            </div>
+                            <div class="pe-pw-skel-cards">
+                                <div class="pe-pw-skel-card"></div>
+                                <div class="pe-pw-skel-card"></div>
+                                <div class="pe-pw-skel-card"></div>
+                            </div>
+                        </div>
+                        <span class="pe-pw-chip">Background 1</span>
+                    </div>
+                }
+
+                @* ── Background 2 (pattern) preview ── *@
+                @if (_tab == "pattern")
+                {
+                    <div class="pe-pw-bg-wrap">
+                        <div class="pe-pw-bg-layer" style="background:#07130a;"></div>
+                        <div class="pe-pw-pattern-overlay pe-pw-pat-@_bgPattern"></div>
+                        <div class="pe-pw-skeleton">
+                            <div class="pe-pw-skel-nav"></div>
+                        </div>
+                        <span class="pe-pw-chip">Background 2 — @_bgPattern</span>
+                    </div>
+                }
+
+                @* ── Navbar preview ── *@
+                @if (_tab == "nav")
+                {
+                    <div class="pe-pw-nav-scene">
+                        <div class="pe-pw-nav-bar" style="background:@GetNavbarPreviewColor()">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="pe-pw-nav-icon" viewBox="0 0 40 40">
+                                <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                                <text x="20" y="25" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">CE</text>
+                            </svg>
+                            <div class="pe-pw-nav-links">
+                                <span>Home</span><span>News</span><span>Services</span><span>About</span>
+                            </div>
+                        </div>
+                        <div class="pe-pw-nav-page-fill"></div>
+                        <span class="pe-pw-chip">Navbar</span>
+                    </div>
+                }
+
+                @* ── Header preview ── *@
+                @if (_tab == "header")
+                {
+                    var previewLogoUrl = _logoPreviewDataUrl.Length > 0 ? _logoPreviewDataUrl
+                        : (_hasHeaderLogo ? ApiEndpoints.SiteSettings.HeaderLogo : "");
+                    var scaledLogoH = Math.Clamp((int)(_headerLogoHeight * 0.22), 8, 70);
+                    <div class="pe-pw-header-scene">
+                        @if (!string.IsNullOrEmpty(previewLogoUrl))
+                        {
+                            <img src="@previewLogoUrl" style="height:@(scaledLogoH)px; width:auto; object-fit:contain; margin-bottom:0.35rem;" alt="logo" />
+                        }
+                        else
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" class="pe-pw-header-default-icon" viewBox="0 0 60 60">
+                                <circle cx="30" cy="30" r="27" fill="none" stroke="currentColor" stroke-width="3"/>
+                                <text x="30" y="37" text-anchor="middle" font-size="16" font-weight="700" fill="currentColor">CE</text>
+                            </svg>
+                        }
+                        <div class="pe-pw-header-orgname">@_headerOrgName</div>
+                        <div class="pe-pw-header-quote">@_headerOrgQuote</div>
+                        <span class="pe-pw-chip">Header</span>
+                    </div>
+                }
+
+                @* ── Footer preview ── *@
+                @if (_tab == "footer")
+                {
+                    <div class="pe-pw-footer-scene">
+                        <div class="pe-pw-footer-spacer"></div>
+                        <div class="pe-pw-footer-bar">
+                            <div class="pe-pw-footer-left">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="pe-pw-footer-icon" viewBox="0 0 40 40">
+                                    <circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                                    <text x="20" y="25" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">CE</text>
+                                </svg>
+                                <div class="pe-pw-footer-text">
+                                    <div class="pe-pw-footer-orgname">USJ-R COMPUTER ENGINEERING SOCIETY</div>
+                                    <div class="pe-pw-footer-sub">@_footerOrgSub</div>
+                                    <div class="pe-pw-footer-links-row">
+                                        @if (!string.IsNullOrEmpty(_footerFacebookUrl) && _footerFacebookUrl != "#")
+                                        { <span class="pe-pw-footer-link">&#x66;</span> }
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pe-pw-footer-right">
+                                <span>Home</span><span>News Feed</span><span>Services</span><span>Officers</span><span>About Us</span>
+                            </div>
+                        </div>
+                        <span class="pe-pw-chip">Footer</span>
+                    </div>
+                }
+
+                @* ── Robot / Hero preview ── *@
+                @if (_tab == "robot")
+                {
+                    <div class="pe-pw-robot-scene">
+                        <div class="pe-pw-robot-adelante">@_robotAdelanteText</div>
+                        <div class="pe-pw-robot-society">@_robotSocietyText</div>
+                        <div class="pe-pw-robot-abbrev">@_robotAbbreviation</div>
+                        <div class="pe-pw-robot-tagline">
+                            @foreach (var line in (_robotTagline ?? "").Split('\n'))
+                            {
+                                <span>@line</span>
+                            }
+                        </div>
+                        <span class="pe-pw-chip">Hero Section</span>
+                    </div>
+                }
+
+                @* ── Theme preview ── *@
+                @if (_tab == "theme")
+                {
+                    <div class="pe-pw-theme-scene" style="color:@_themeTextColor">
+                        <div class="pe-pw-theme-title" style="color:@_themeAccent; font-family:@GetPreviewFontCss()">Theme Preview</div>
+                        <div class="pe-pw-swatches-row">
+                            <div class="pe-pw-swatch-item">
+                                <div class="pe-pw-swatch" style="background:@_themeAccent"></div>
+                                <span>Accent</span>
+                            </div>
+                            <div class="pe-pw-swatch-item">
+                                <div class="pe-pw-swatch" style="background:@_themeAccentBright"></div>
+                                <span>Bright</span>
+                            </div>
+                            <div class="pe-pw-swatch-item">
+                                <div class="pe-pw-swatch" style="background:@_themeTextColor; border:1px solid rgba(255,255,255,0.2)"></div>
+                                <span>Text</span>
+                            </div>
+                        </div>
+                        <div class="pe-pw-font-sample" style="color:@_themeAccent; font-family:@GetPreviewFontCss(); font-size:@(_themeFontSize * 0.55)%">
+                            Aa Bb Cc 123
+                        </div>
+                        <div class="pe-pw-font-label">@GetFontDisplayName()</div>
+                        <div class="pe-pw-demo-btn" style="border-color:@_themeAccent; color:@_themeAccent; background:color-mix(in srgb, @_themeAccent 12%, transparent)">
+                            Sample Button
+                        </div>
+                        <span class="pe-pw-chip">Theme</span>
+                    </div>
+                }
+
+            </div><!-- /pe-preview-window -->
+        </div><!-- /pe-preview-panel -->
+    </div><!-- /pe-preview-column -->
+
+    </div><!-- /pe-body -->
+
+    <!-- ── ACTION BAR ── -->
+    <div class="pe-action-bar">
+        <button class="pe-btn-cancel" @onclick="CancelChanges">Cancel</button>
+        <button class="pe-btn-default" @onclick="() => _showDefaultConfirm = true">Restore to Default</button>
+        @if (CanDirectSave)
+        {
+            <button class="pe-btn-save" @onclick="() => _showSaveConfirm = true">Save Changes</button>
+        }
+        else
+        {
+            <button class="pe-btn-save" @onclick="() => _showProposeConfirm = true" disabled="@_saving">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:4px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Submit for Approval
+            </button>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(_saveStatus))
+    {
+        <div class="pe-save-status @(_saveError ? "error" : "success")">@_saveStatus</div>
+    }
+</div>
+
+<!-- Save confirmation modal -->
+@if (_showSaveConfirm)
+{
+    <div class="pe-modal-overlay" @onclick="() => _showSaveConfirm = false">
+        <div class="pe-modal" @onclick:stopPropagation>
+            <h3 class="pe-modal-title">Apply Settings?</h3>
+            <p class="pe-modal-body">These settings will be applied site-wide for all visitors. Continue?</p>
+            <div class="pe-modal-actions">
+                <button class="pe-btn-cancel" @onclick="() => _showSaveConfirm = false">No, Cancel</button>
+                <button class="pe-btn-save" @onclick="SaveToDb" disabled="@_saving">
+                    @(_saving ? "Saving..." : "Yes, Save")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Propose for approval modal -->
+@if (_showProposeConfirm)
+{
+    <div class="pe-modal-overlay" @onclick="() => _showProposeConfirm = false">
+        <div class="pe-modal" @onclick:stopPropagation>
+            <h3 class="pe-modal-title">Submit for Approval?</h3>
+            <p class="pe-modal-body">Your changes will be submitted to the adviser for review. They won't go live until approved.</p>
+            <div class="pe-modal-actions">
+                <button class="pe-btn-cancel" @onclick="() => _showProposeConfirm = false">Cancel</button>
+                <button class="pe-btn-save" @onclick="ProposeChanges" disabled="@_saving">
+                    @(_saving ? "Submitting…" : "Submit")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Restore-to-default confirmation modal -->
+@if (_showDefaultConfirm)
+{
+    <div class="pe-modal-overlay" @onclick="() => _showDefaultConfirm = false">
+        <div class="pe-modal" @onclick:stopPropagation>
+            <h3 class="pe-modal-title">Restore Defaults?</h3>
+            <p class="pe-modal-body">This will submit a proposal to reset ALL appearance settings to the original defaults. An adviser must approve before changes go live.</p>
+            <div class="pe-modal-actions">
+                <button class="pe-btn-cancel" @onclick="() => _showDefaultConfirm = false">No, Cancel</button>
+                <button class="pe-btn-default" @onclick="RestoreDefaults" disabled="@_saving">
+                    @(_saving ? "Submitting..." : "Submit for Approval")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private HttpClient Http => HttpClientFactory.CreateClient("general");
+    private string _tab = "bg";
+
+    // Background
+    private string _bgType = "color";
+    private string _bgColor = "#07130a";
+    private string _bgSize = "cover";
+    private string _bgPosition = "center";
+    private double _bgOpacity = 1.0;
+    private string _activeKey = "";
+    private bool _hasBgImage;
+    private bool _clearBgImage;
+    private string _bgImagePreviewDataUrl = "";
+    private string? _bgImageBase64;
+    private string? _bgImageMimeType;
+    private string _bgImageUploadStatus = "";
+    private int _bgCustomW = 100;
+    private int _bgCustomH = 100;
+
+    // Background 2 pattern
+    private string _bgPattern = "circuit";
+
+    // Navbar
+    private string _navbarColor = "";
+
+    // Header
+    private string _headerOrgName = "USJ-R COMPUTER ENGINEERING SOCIETY";
+    private string _headerOrgQuote = "Pressure is not a Curse, it is a Blessing.";
+    private bool _hasHeaderLogo;
+    private bool _clearHeaderLogo;
+    private string _logoPreviewDataUrl = "";
+    private string? _logoBase64;
+    private string? _logoMimeType;
+    private string _logoUploadStatus = "";
+    private int _headerLogoHeight = 100;
+    private int _footerLogoHeight = 60;
+
+    // Footer
+    private string _footerOrgSub      = "This is the Official Website of USJ-R ComEs";
+    private string _footerFacebookUrl = "https://www.facebook.com/usjrcomes";
+    private string _footerWebsiteUrl  = "#";
+
+    // Robot / hero
+    private string _robotAdelanteText = "ADELANTE";
+    private string _robotSocietyText  = "USJ-R Computer Engineering Society";
+    private string _robotAbbreviation = "CpES";
+    private string _robotTagline      = "BUILDING THE\nFUTURE\nTHROUGH\nENGINEERING";
+
+    // Theme
+    private string _themeAccent       = "#28b450";
+    private string _themeAccentBright = "#00ff88";
+    private string _themeTextColor    = "#e0e0e0";
+    private string _themeFontFamily   = "default";
+    private int    _themeFontSize     = 100;
+    private string _themePresetKey    = "";
+
+    // UI state
+    private bool _showSaveConfirm;
+    private bool _showDefaultConfirm;
+    private bool _showProposeConfirm;
+    private bool _saving;
+
+    private string _role => UserState.CurrentUser?.AccountRole.ToString() ?? "";
+    private bool CanDirectSave => false;
+    private string _saveStatus = "";
+    private bool _saveError;
+
+    private record ColorPreset(string Key, string Label, string Preview, string Value);
+    private record GradientPreset(string Key, string Label, string Preview, string Value);
+    private record NavbarPreset(string Label, string Value);
+
+    private readonly List<ColorPreset> _colorPresets = new()
+    {
+        new("default",  "Forest",   "#07130a",  "#07130a"),
+        new("navy",     "Navy",     "#070b1a",  "#070b1a"),
+        new("purple",   "Violet",   "#0f0a1a",  "#0f0a1a"),
+        new("charcoal", "Charcoal", "#111111",  "#111111"),
+        new("darkred",  "Crimson",  "#1a0707",  "#1a0707"),
+        new("teal",     "Teal",     "#071a1a",  "#071a1a"),
+    };
+
+    private readonly List<GradientPreset> _gradientPresets = new()
+    {
+        new("g-forest",   "Green Mist",  "linear-gradient(135deg,#07130a,#0a2018)",  "linear-gradient(135deg,#07130a 0%,#0a2018 100%)"),
+        new("g-midnight", "Midnight",    "linear-gradient(135deg,#07080a,#0a0d14)",  "linear-gradient(135deg,#07080a 0%,#0a0d14 100%)"),
+        new("g-aurora",   "Aurora",      "linear-gradient(135deg,#0b0714,#071a0d)",  "linear-gradient(135deg,#0b0714 0%,#071a0d 100%)"),
+        new("g-dusk",     "Dusk",        "linear-gradient(135deg,#14070b,#0a0714)",  "linear-gradient(135deg,#14070b 0%,#0a0714 100%)"),
+    };
+
+    private record PatternPreset(string Key, string Label);
+    private readonly List<PatternPreset> _patternPresets = new()
+    {
+        new("none",      "None"),
+        new("circuit",   "Circuit Board"),
+        new("rain",      "Matrix Rain"),
+        new("particles", "Particles"),
+        new("dots",      "Dot Grid"),
+        new("grid",      "Grid Lines"),
+        new("pixels",    "Pixel Grid"),
+        new("hex",       "Hex Grid"),
+        new("waves",     "Diagonal Waves"),
+    };
+
+    private record ThemePreset(string Key, string Label, string Accent, string AccentBright, string TextColor, string FontFamily = "default", int FontSize = 100);
+    private readonly List<ThemePreset> _themePresets = new()
+    {
+        new("green",    "ComES Green",    "#28b450", "#00ff88", "#e0e0e0"),
+        new("blue",     "Ocean Blue",     "#2878e8", "#60b8ff", "#e0e8f0"),
+        new("orange",   "Sunset Orange",  "#e07830", "#ffb060", "#f0e8e0"),
+        new("purple",   "Royal Purple",   "#9858e8", "#c090ff", "#e8e0f8"),
+        new("crimson",  "Crimson",        "#d03050", "#ff6080", "#f0e0e4"),
+        new("silver",   "Silver",         "#8898aa", "#b8c8d8", "#e8eef4"),
+    };
+
+    private readonly List<NavbarPreset> _navbarPresets = new()
+    {
+        new("Forest",   "rgba(7,20,12,0.85)"),
+        new("Navy",     "rgba(7,11,26,0.85)"),
+        new("Violet",   "rgba(15,10,26,0.85)"),
+        new("Charcoal", "rgba(17,17,17,0.85)"),
+        new("Black",    "rgba(0,0,0,0.92)"),
+        new("Teal",     "rgba(7,26,26,0.85)"),
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await LoadFromService();
+    }
+
+    private async Task LoadFromService()
+    {
+        if (!SettingsService.IsLoaded)
+            await SettingsService.LoadAsync();
+
+        var s = SettingsService.Current;
+        _bgType       = s.BackgroundType;
+        _bgColor      = s.BackgroundType == "color" ? s.BackgroundValue : "#07130a";
+        _bgPosition   = s.BackgroundPosition;
+        _bgOpacity    = s.BackgroundOpacity;
+        _hasBgImage   = s.HasBackgroundImage;
+        _navbarColor  = s.NavbarColor;
+        _headerOrgName  = s.HeaderOrgName;
+        _headerOrgQuote = s.HeaderOrgQuote;
+        _hasHeaderLogo  = s.HasHeaderLogo;
+        _headerLogoHeight = s.HeaderLogoHeight;
+        _footerLogoHeight = s.FooterLogoHeight;
+        _bgPattern        = s.BackgroundPattern;
+        _footerOrgSub      = s.FooterOrgSub;
+        _footerFacebookUrl = s.FooterFacebookUrl;
+        _footerWebsiteUrl  = s.FooterWebsiteUrl;
+        _robotAdelanteText = s.RobotAdelanteText;
+        _robotSocietyText  = s.RobotSocietyText;
+        _robotAbbreviation = s.RobotAbbreviation;
+        _robotTagline      = s.RobotTagline;
+        _themeAccent       = s.ThemeAccent;
+        _themeAccentBright = s.ThemeAccentBright;
+        _themeTextColor    = s.ThemeTextColor;
+        _themeFontFamily   = s.ThemeFontFamily;
+        _themeFontSize     = s.ThemeFontSize;
+        _themePresetKey    = "";
+
+        // Restore custom size
+        if (!string.IsNullOrWhiteSpace(s.BackgroundCustomSize))
+        {
+            _bgSize = "custom";
+            var parts = s.BackgroundCustomSize.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 1 && int.TryParse(parts[0].TrimEnd('%'), out var w)) _bgCustomW = w;
+            if (parts.Length >= 2 && int.TryParse(parts[1].TrimEnd('%'), out var h)) _bgCustomH = h;
+        }
+        else
+        {
+            _bgSize = s.BackgroundSize;
+        }
+
+        if (s.BackgroundType == "gradient") _activeKey = "gradient";
+        StateHasChanged();
+    }
+
+    private void SetBgType(string type) { _bgType = type; Preview(); }
+
+    private void SetPattern(string pattern)
+    {
+        _bgPattern = pattern;
+    }
+
+    private void ApplyColorPreset(ColorPreset p)
+    {
+        _activeKey = p.Key;
+        _bgColor = p.Value;
+        Preview();
+    }
+
+    private void ApplyGradientPreset(GradientPreset g)
+    {
+        _activeKey = g.Key;
+        Preview();
+    }
+
+    private void ApplyNavbarPreset(string color)
+    {
+        _navbarColor = color;
+        Preview();
+    }
+
+    private void ClearNavbarColor() { _navbarColor = ""; Preview(); }
+
+    private void ClearBgImage()
+    {
+        _clearBgImage = true;
+        _hasBgImage = false;
+        _bgImagePreviewDataUrl = "";
+        _bgImageBase64 = null;
+        _bgType = "color";
+        Preview();
+    }
+
+    private void ClearHeaderLogo()
+    {
+        _clearHeaderLogo = true;
+        _hasHeaderLogo = false;
+        _logoPreviewDataUrl = "";
+        _logoBase64 = null;
+    }
+
+    private void OnBgColorInput(ChangeEventArgs e)
+    {
+        _bgColor = e.Value?.ToString() ?? _bgColor;
+        Preview();
+    }
+
+    private void OnNavbarColorInput(ChangeEventArgs e)
+    {
+        _navbarColor = e.Value?.ToString() ?? _navbarColor;
+        Preview();
+    }
+
+    private void OnOpacityInput(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var v))
+            _bgOpacity = v;
+        Preview();
+    }
+
+    private void OnBgCustomWInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v)) _bgCustomW = Math.Max(1, v);
+        Preview();
+    }
+
+    private void OnBgCustomHInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v)) _bgCustomH = Math.Max(1, v);
+        Preview();
+    }
+
+    private void OnHeaderLogoHeightInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v))
+            _headerLogoHeight = Math.Clamp(v, 10, 400);
+    }
+
+    private void OnFooterLogoHeightInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v))
+            _footerLogoHeight = Math.Clamp(v, 10, 300);
+    }
+
+    private void OnFooterOrgSubInput(ChangeEventArgs e)
+    {
+        _footerOrgSub = e.Value?.ToString() ?? _footerOrgSub;
+    }
+
+    private void OnFooterFacebookUrlInput(ChangeEventArgs e)
+    {
+        _footerFacebookUrl = e.Value?.ToString() ?? _footerFacebookUrl;
+    }
+
+    private void OnFooterWebsiteUrlInput(ChangeEventArgs e)
+    {
+        _footerWebsiteUrl = e.Value?.ToString() ?? _footerWebsiteUrl;
+    }
+
+    private void OnRobotAdelanteInput(ChangeEventArgs e)
+    {
+        _robotAdelanteText = e.Value?.ToString() ?? _robotAdelanteText;
+    }
+
+    private void OnRobotSocietyInput(ChangeEventArgs e)
+    {
+        _robotSocietyText = e.Value?.ToString() ?? _robotSocietyText;
+    }
+
+    private void OnRobotAbbreviationInput(ChangeEventArgs e)
+    {
+        _robotAbbreviation = e.Value?.ToString() ?? _robotAbbreviation;
+    }
+
+    private void OnRobotTaglineInput(ChangeEventArgs e)
+    {
+        _robotTagline = e.Value?.ToString() ?? _robotTagline;
+    }
+
+    private void ApplyThemePreset(ThemePreset p)
+    {
+        _themePresetKey    = p.Key;
+        _themeAccent       = p.Accent;
+        _themeAccentBright = p.AccentBright;
+        _themeTextColor    = p.TextColor;
+        _themeFontFamily   = p.FontFamily;
+        _themeFontSize     = p.FontSize;
+        PreviewTheme();
+    }
+
+    private void OnThemeAccentInput(ChangeEventArgs e)
+    {
+        _themeAccent = e.Value?.ToString() ?? _themeAccent;
+        _themePresetKey = "";
+        PreviewTheme();
+    }
+
+    private void OnThemeAccentBrightInput(ChangeEventArgs e)
+    {
+        _themeAccentBright = e.Value?.ToString() ?? _themeAccentBright;
+        _themePresetKey = "";
+        PreviewTheme();
+    }
+
+    private void OnThemeTextColorInput(ChangeEventArgs e)
+    {
+        _themeTextColor = e.Value?.ToString() ?? _themeTextColor;
+        _themePresetKey = "";
+        PreviewTheme();
+    }
+
+    private void OnThemeFontFamilyChange(ChangeEventArgs e)
+    {
+        _themeFontFamily = e.Value?.ToString() ?? _themeFontFamily;
+        _themePresetKey = "";
+        PreviewTheme();
+    }
+
+    private void OnThemeFontSizeInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v))
+            _themeFontSize = Math.Clamp(v, 70, 150);
+        _themePresetKey = "";
+        PreviewTheme();
+    }
+
+    private void PreviewTheme() { }
+
+    private string GetEffectiveBgSize() =>
+        _bgSize == "custom" ? $"{_bgCustomW}% {_bgCustomH}%" : _bgSize;
+
+    private void OnHeaderOrgNameInput(ChangeEventArgs e)
+    {
+        _headerOrgName = e.Value?.ToString() ?? _headerOrgName;
+    }
+
+    private void OnHeaderOrgQuoteInput(ChangeEventArgs e)
+    {
+        _headerOrgQuote = e.Value?.ToString() ?? _headerOrgQuote;
+    }
+
+    private async Task HandleBgImageUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        _bgImageUploadStatus = "Processing...";
+        StateHasChanged();
+        try
+        {
+            using var ms = new System.IO.MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 8 * 1024 * 1024).CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            _bgImageBase64 = Convert.ToBase64String(bytes);
+            _bgImageMimeType = file.ContentType;
+            _bgImagePreviewDataUrl = $"data:{file.ContentType};base64,{_bgImageBase64}";
+            _bgType = "image";
+            _clearBgImage = false;
+            _bgImageUploadStatus = "Image ready.";
+            Preview();
+        }
+        catch { _bgImageUploadStatus = "Upload failed. Max 8 MB."; }
+    }
+
+    private async Task HandleLogoUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        _logoUploadStatus = "Processing...";
+        StateHasChanged();
+        try
+        {
+            using var ms = new System.IO.MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 4 * 1024 * 1024).CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            _logoBase64 = Convert.ToBase64String(bytes);
+            _logoMimeType = file.ContentType;
+            _logoPreviewDataUrl = $"data:{file.ContentType};base64,{_logoBase64}";
+            _clearHeaderLogo = false;
+            _logoUploadStatus = "Logo ready.";
+        }
+        catch { _logoUploadStatus = "Upload failed. Max 4 MB."; }
+    }
+
+    private void Preview() { }
+
+    private SiteSettingsViewModel BuildViewModel() => new()
+    {
+        BackgroundType      = _bgType,
+        BackgroundValue     = _bgType == "gradient"
+            ? (_gradientPresets.FirstOrDefault(g => g.Key == _activeKey)?.Value ?? "#07130a")
+            : _bgColor,
+        BackgroundOpacity   = _bgOpacity,
+        BackgroundSize      = GetEffectiveBgSize(),
+        BackgroundCustomSize = _bgSize == "custom" ? GetEffectiveBgSize() : "",
+        BackgroundPosition  = _bgPosition,
+        NavbarColor         = _navbarColor,
+        HeaderOrgName       = _headerOrgName,
+        HeaderOrgQuote      = _headerOrgQuote,
+        HasHeaderLogo       = _hasHeaderLogo && string.IsNullOrEmpty(_logoPreviewDataUrl) || !string.IsNullOrEmpty(_logoPreviewDataUrl),
+        HasBackgroundImage  = _hasBgImage && string.IsNullOrEmpty(_bgImagePreviewDataUrl) || !string.IsNullOrEmpty(_bgImagePreviewDataUrl),
+        HeaderLogoHeight    = _headerLogoHeight,
+        FooterLogoHeight    = _footerLogoHeight,
+        BackgroundPattern   = _bgPattern,
+        FooterOrgSub        = _footerOrgSub,
+        FooterFacebookUrl   = _footerFacebookUrl,
+        FooterWebsiteUrl    = _footerWebsiteUrl,
+        RobotAdelanteText   = _robotAdelanteText,
+        RobotSocietyText    = _robotSocietyText,
+        RobotAbbreviation   = _robotAbbreviation,
+        RobotTagline        = _robotTagline,
+        ThemeAccent         = _themeAccent,
+        ThemeAccentBright   = _themeAccentBright,
+        ThemeTextColor      = _themeTextColor,
+        ThemeFontFamily     = _themeFontFamily,
+        ThemeFontSize       = _themeFontSize,
+    };
+
+    private async Task ProposeChanges()
+    {
+        _showProposeConfirm = false;
+        var bgValue = _bgType == "gradient"
+            ? (_gradientPresets.FirstOrDefault(g => g.Key == _activeKey)?.Value ?? _gradientPresets[0].Value)
+            : _bgColor;
+
+        var req = new SiteSettingsRequest
+        {
+            BackgroundType          = _bgType,
+            BackgroundValue         = bgValue,
+            BackgroundOpacity       = _bgOpacity,
+            BackgroundSize          = GetEffectiveBgSize(),
+            BackgroundCustomSize    = _bgSize == "custom" ? GetEffectiveBgSize() : "",
+            BackgroundPosition      = _bgPosition,
+            NavbarColor             = _navbarColor,
+            HeaderOrgName           = _headerOrgName,
+            HeaderOrgQuote          = _headerOrgQuote,
+            BackgroundImageBase64   = _bgImageBase64,
+            BackgroundImageMimeType = _bgImageMimeType,
+            ClearBackgroundImage    = _clearBgImage,
+            HeaderLogoBase64        = _logoBase64,
+            HeaderLogoMimeType      = _logoMimeType,
+            ClearHeaderLogo         = _clearHeaderLogo,
+            HeaderLogoHeight        = _headerLogoHeight,
+            FooterLogoHeight        = _footerLogoHeight,
+            BackgroundPattern       = _bgPattern,
+            FooterOrgSub            = _footerOrgSub,
+            FooterFacebookUrl       = _footerFacebookUrl,
+            FooterWebsiteUrl        = _footerWebsiteUrl,
+            RobotAdelanteText       = _robotAdelanteText,
+            RobotSocietyText        = _robotSocietyText,
+            RobotAbbreviation       = _robotAbbreviation,
+            RobotTagline            = _robotTagline,
+            ThemeAccent             = _themeAccent,
+            ThemeAccentBright       = _themeAccentBright,
+            ThemeTextColor          = _themeTextColor,
+            ThemeFontFamily         = _themeFontFamily,
+            ThemeFontSize           = _themeFontSize,
+        };
+
+        await SubmitProposal(req);
+    }
+
+    private async Task SubmitProposal(SiteSettingsRequest req)
+    {
+        _saving = true;
+        _saveStatus = "";
+        StateHasChanged();
+
+        var proposedJson = System.Text.Json.JsonSerializer.Serialize(req);
+        var payload = new
+        {
+            changeType         = "SiteSettings",
+            proposedDataJson   = proposedJson,
+            proposedBySchoolId = UserState.CurrentUser?.SchoolId ?? ""
+        };
+
+        var resp = await Http.PostAsJsonAsync(ApiEndpoints.SiteChanges.Propose, payload);
+        _saving = false;
+
+        if (resp.IsSuccessStatusCode)
+        {
+            _saveStatus = "Your changes have been submitted for adviser review.";
+            _saveError = false;
+        }
+        else
+        {
+            _saveStatus = "Failed to submit. Please try again.";
+            _saveError = true;
+        }
+    }
+
+    private async Task SaveToDb()
+    {
+        _saving = true;
+        _showSaveConfirm = false;
+        _saveStatus = "";
+        StateHasChanged();
+
+        var bgValue = _bgType == "gradient"
+            ? (_gradientPresets.FirstOrDefault(g => g.Key == _activeKey)?.Value ?? _gradientPresets[0].Value)
+            : _bgColor;
+
+        var req = new SiteSettingsRequest
+        {
+            BackgroundType          = _bgType,
+            BackgroundValue         = bgValue,
+            BackgroundOpacity       = _bgOpacity,
+            BackgroundSize          = GetEffectiveBgSize(),
+            BackgroundCustomSize    = _bgSize == "custom" ? GetEffectiveBgSize() : "",
+            BackgroundPosition      = _bgPosition,
+            NavbarColor             = _navbarColor,
+            HeaderOrgName           = _headerOrgName,
+            HeaderOrgQuote          = _headerOrgQuote,
+            BackgroundImageBase64   = _bgImageBase64,
+            BackgroundImageMimeType = _bgImageMimeType,
+            ClearBackgroundImage    = _clearBgImage,
+            HeaderLogoBase64        = _logoBase64,
+            HeaderLogoMimeType      = _logoMimeType,
+            ClearHeaderLogo         = _clearHeaderLogo,
+            HeaderLogoHeight        = _headerLogoHeight,
+            FooterLogoHeight        = _footerLogoHeight,
+            BackgroundPattern       = _bgPattern,
+            FooterOrgSub            = _footerOrgSub,
+            FooterFacebookUrl       = _footerFacebookUrl,
+            FooterWebsiteUrl        = _footerWebsiteUrl,
+            RobotAdelanteText       = _robotAdelanteText,
+            RobotSocietyText        = _robotSocietyText,
+            RobotAbbreviation       = _robotAbbreviation,
+            RobotTagline            = _robotTagline,
+            ThemeAccent             = _themeAccent,
+            ThemeAccentBright       = _themeAccentBright,
+            ThemeTextColor          = _themeTextColor,
+            ThemeFontFamily         = _themeFontFamily,
+            ThemeFontSize           = _themeFontSize,
+        };
+
+        var ok = await SettingsService.SaveAsync(req);
+        if (ok)
+        {
+            _saveStatus = "Settings saved successfully.";
+            _saveError = false;
+            _bgImageBase64 = null; _bgImageMimeType = null;
+            _logoBase64 = null; _logoMimeType = null;
+            _clearBgImage = false; _clearHeaderLogo = false;
+            try
+            {
+                var s = SettingsService.Current;
+                await JS.InvokeVoidAsync("bgCustomizer.applyFromSettings", new
+                {
+                    backgroundType       = s.BackgroundType,
+                    backgroundValue      = s.BackgroundValue,
+                    backgroundOpacity    = s.BackgroundOpacity,
+                    backgroundSize       = s.BackgroundSize,
+                    backgroundCustomSize = s.BackgroundCustomSize,
+                    backgroundPosition   = s.BackgroundPosition,
+                    navbarColor          = s.NavbarColor,
+                    hasBackgroundImage   = s.HasBackgroundImage,
+                    backgroundImageUrl   = ApiEndpoints.SiteSettings.BackgroundImage,
+                    savedAt              = s.SavedAt,
+                    backgroundPattern    = s.BackgroundPattern,
+                });
+                await JS.InvokeVoidAsync("themeCustomizer.apply", new
+                {
+                    themeAccent       = s.ThemeAccent,
+                    themeAccentBright = s.ThemeAccentBright,
+                    themeTextColor    = s.ThemeTextColor,
+                    themeFontFamily   = s.ThemeFontFamily,
+                    themeFontSize     = s.ThemeFontSize,
+                });
+                var bgSize = string.IsNullOrWhiteSpace(s.BackgroundCustomSize)
+                    ? (s.BackgroundSize ?? "cover") : s.BackgroundCustomSize;
+                var bgUrl = ApiEndpoints.SiteSettings.BackgroundImage + "?v=" + s.SavedAt;
+                await JS.InvokeVoidAsync("bgCustomizer.syncServerLayer",
+                    s.HasBackgroundImage, bgUrl, bgSize,
+                    s.BackgroundPosition ?? "center",
+                    s.BackgroundOpacity.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            catch { }
+        }
+        else
+        {
+            _saveStatus = "Save failed. Please try again.";
+            _saveError = true;
+        }
+
+        _saving = false;
+    }
+
+    private async Task CancelChanges()
+    {
+        await LoadFromService();
+        _saveStatus = "";
+    }
+
+    private string GetPreviewBgCss()
+    {
+        if (_bgType == "image")
+        {
+            var url = !string.IsNullOrEmpty(_bgImagePreviewDataUrl)
+                ? _bgImagePreviewDataUrl
+                : (_hasBgImage ? ApiEndpoints.SiteSettings.BackgroundImage : "");
+            return string.IsNullOrEmpty(url) ? _bgColor : $"url('{url}') center/cover no-repeat";
+        }
+        if (_bgType == "gradient")
+            return _gradientPresets.FirstOrDefault(g => g.Key == _activeKey)?.Value ?? _gradientPresets[0].Value;
+        return _bgColor;
+    }
+
+    private string GetNavbarPreviewColor() =>
+        string.IsNullOrEmpty(_navbarColor) ? "rgba(7,20,12,0.92)" : _navbarColor;
+
+    private string GetPreviewFontCss() => _themeFontFamily switch
+    {
+        "inter"      => "'Inter', sans-serif",
+        "roboto"     => "'Roboto', sans-serif",
+        "orbitron"   => "'Orbitron', sans-serif",
+        "sharetech"  => "'Share Tech Mono', monospace",
+        "exo2"       => "'Exo 2', sans-serif",
+        "pressstart" => "'Press Start 2P', monospace",
+        _            => "system-ui, sans-serif"
+    };
+
+    private string GetFontDisplayName() => _themeFontFamily switch
+    {
+        "inter"      => "Inter",
+        "roboto"     => "Roboto",
+        "orbitron"   => "Orbitron",
+        "sharetech"  => "Share Tech Mono",
+        "exo2"       => "Exo 2",
+        "pressstart" => "Press Start 2P",
+        _            => "System Default"
+    };
+
+    private async Task RestoreDefaults()
+    {
+        _showDefaultConfirm = false;
+        var req = new SiteSettingsRequest
+        {
+            BackgroundType       = "color",
+            BackgroundValue      = "#07130a",
+            BackgroundOpacity    = 1.0,
+            BackgroundSize       = "cover",
+            BackgroundCustomSize = "",
+            BackgroundPosition   = "center",
+            NavbarColor          = "",
+            HeaderOrgName        = "USJ-R COMPUTER ENGINEERING SOCIETY",
+            HeaderOrgQuote       = "Pressure is not a Curse, it is a Blessing.",
+            ClearBackgroundImage = true,
+            ClearHeaderLogo      = true,
+            HeaderLogoHeight     = 100,
+            FooterLogoHeight     = 60,
+            BackgroundPattern    = "circuit",
+            FooterOrgSub         = "This is the Official Website of USJ-R ComEs",
+            FooterFacebookUrl    = "https://www.facebook.com/usjrcomes",
+            FooterWebsiteUrl     = "#",
+            RobotAdelanteText    = "ADELANTE",
+            RobotSocietyText     = "USJ-R Computer Engineering Society",
+            RobotAbbreviation    = "CpES",
+            RobotTagline         = "BUILDING THE\nFUTURE\nTHROUGH\nENGINEERING",
+            ThemeAccent          = "#28b450",
+            ThemeAccentBright    = "#00ff88",
+            ThemeTextColor       = "#e0e0e0",
+            ThemeFontFamily      = "default",
+            ThemeFontSize        = 100,
+        };
+        await SubmitProposal(req);
+    }
+}

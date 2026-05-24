@@ -1,0 +1,189 @@
+﻿@page "/login"
+@inject USJR_COMES_WEBSITE.ViewModels.LoginViewModel ViewModel
+@inject NavigationManager NavigationManager
+@inject IUserServices UserServices
+
+<div class="login-page-container">
+    <main class="login-main-row">
+        <section class="branding-section">
+            <Robot />
+        </section>
+
+        <section class="form-section">
+            <div class="login-form-wrapper">
+                <h1 class="login-title">Sign In</h1>
+
+                @if (ViewModel.ErrorMessage is not null)
+                {
+                    <div class="login-error">@ViewModel.ErrorMessage</div>
+                }
+
+                <div class="login-fields">
+                    <label class="login-label">Student ID</label>
+                    <input class="login-input" type="text" placeholder="Enter student ID" @bind="ViewModel.SchoolId" />
+
+                    <label class="login-label">Password</label>
+                    <input class="login-input" type="password" placeholder="Enter password here" @bind="ViewModel.Password" />
+                </div>
+
+                <button class="login-btn" @onclick="HandleLoginSubmit" disabled="@ViewModel.IsLoading">
+                    @(ViewModel.IsLoading ? "Logging in..." : "Log in")
+                </button>
+
+                <button class="forgot-link" type="button" @onclick="OpenForgotModal">Forgot Password?</button>
+            </div>
+        </section>
+    </main>
+
+    <div class="spacer-bottom"></div>
+
+    <footer class="site-footer">
+        <Footer />
+    </footer>
+</div>
+
+<CreateAccount IsVisible="showCreateAccount" OnClose="() => showCreateAccount = false" OnSuccess="HandleAccountCreated" />
+
+<USJR_COMES_WEBSITE.Components.Shared.SuccessPopup
+    IsVisible="showSuccessPopup"
+    Message="@successMessage"
+    OnOkClick="HandlePopupOk" />
+
+<!-- No Password popup -->
+@if (_showNoPasswordPopup)
+{
+    <div class="popup-overlay" @onclick="() => _showNoPasswordPopup = false">
+        <div class="popup-card" @onclick:stopPropagation="true">
+            <p class="popup-title">No Password Yet</p>
+            <p class="popup-body-text">Your account does not have a password yet. We've sent a link to your school Gmail account â€” check your inbox and click the link to set your password.</p>
+            <div class="popup-footer">
+                <button class="popup-btn-primary" @onclick="() => _showNoPasswordPopup = false">OK, Got It</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Forgot Password modal -->
+@if (_showForgotModal)
+{
+    <div class="popup-overlay" @onclick="CloseForgotModal">
+        <div class="popup-card" @onclick:stopPropagation="true">
+
+            @if (_forgotSent)
+            {
+                <div class="popup-icon-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6ed42a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+                <p class="popup-success-title">Email Sent!</p>
+                <p class="popup-body-text" style="text-align:center;">
+                    A password reset link has been sent to your school email. Check your inbox.
+                </p>
+                <button class="popup-btn-primary-full" @onclick="CloseForgotModal">OK</button>
+            }
+            else
+            {
+                <p class="popup-title">Forgot Password</p>
+                <div>
+                    <label class="popup-label">School Email</label>
+                    <input class="popup-input" type="email" placeholder="e.g. lastname.firstname.22@usjr.edu.ph"
+                           @bind="_forgotEmail" @bind:event="oninput" />
+                    @if (!string.IsNullOrEmpty(_forgotError))
+                    {
+                        <p class="popup-error" style="margin-top:0.35rem;">@_forgotError</p>
+                    }
+                </div>
+                <div class="popup-footer">
+                    <button class="popup-btn-cancel" @onclick="CloseForgotModal">Cancel</button>
+                    <button class="popup-btn-primary" @onclick="SendForgotEmail" disabled="@_forgotSending">
+                        @(_forgotSending ? "Sendingâ€¦" : "Send Reset Link")
+                    </button>
+                </div>
+            }
+
+        </div>
+    </div>
+}
+
+@code {
+    @using USJR_COMES_WEBSITE.Services
+
+    private bool showCreateAccount = false;
+    private bool showSuccessPopup  = false;
+    private string successMessage  = "";
+    private bool isLoginSuccess    = false;
+
+    // No-password popup (component-level state)
+    private bool _showNoPasswordPopup = false;
+
+    // Forgot password (component-level state â€” never touches ViewModel for UI)
+    private bool   _showForgotModal = false;
+    private bool   _forgotSent      = false;
+    private bool   _forgotSending   = false;
+    private string _forgotEmail     = "";
+    private string _forgotError     = "";
+
+    private void OpenForgotModal()
+    {
+        _forgotEmail     = "";
+        _forgotError     = "";
+        _forgotSent      = false;
+        _forgotSending   = false;
+        _showForgotModal = true;
+    }
+
+    private void CloseForgotModal()
+    {
+        _showForgotModal = false;
+    }
+
+    private async Task SendForgotEmail()
+    {
+        _forgotError = "";
+        if (string.IsNullOrWhiteSpace(_forgotEmail))
+        {
+            _forgotError = "Please enter your school email.";
+            return;
+        }
+
+        _forgotSending = true;
+        await UserServices.RequestPasswordResetAsync(_forgotEmail.Trim());
+        _forgotSending = false;
+        _forgotSent    = true;
+    }
+
+    private void HandleAccountCreated()
+    {
+        showCreateAccount = false;
+        successMessage    = "Your account has been created successfully! You can now log in.";
+        isLoginSuccess    = false;
+        showSuccessPopup  = true;
+    }
+
+    private async Task HandleLoginSubmit()
+    {
+        await ViewModel.ExecuteLoginAsync();
+
+        if (ViewModel.ShowNoPasswordPopup)
+        {
+            _showNoPasswordPopup = true;
+            return;
+        }
+
+        if (ViewModel.IsSuccess)
+        {
+            successMessage   = "Logged in successfully!";
+            isLoginSuccess   = true;
+            showSuccessPopup = true;
+        }
+    }
+
+    private void HandlePopupOk()
+    {
+        showSuccessPopup = false;
+        if (isLoginSuccess)
+            NavigationManager.NavigateTo("/");
+    }
+}

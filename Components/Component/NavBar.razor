@@ -1,0 +1,220 @@
+﻿ @implements IDisposable
+ @using USJR_COMES_WEBSITE.Services
+ @using USJR_COMES_WEBSITE.ViewModels
+ @inject NavigationManager Nav
+ @inject IOfficersService OfficersService
+ @inject IServicesOfferedService ServicesOfferedService
+ @inject UserStateService UserState
+
+ <nav class="navbar-container">
+     <ul class="nav-list">
+         <li class="nav-item">
+             <a href="/" class="nav-link @(IsActive("/") ? "active" : "")">Home</a>
+         </li>
+         <li class="nav-item">
+            <a href="/newsfeed" class="nav-link @(IsActive("/newsfeed") ? "active" : "")">News Feed</a>
+         </li>
+         <li class="nav-item" @onmouseenter="() => servicesOpen = true" @onmouseleave="() => servicesOpen = false">
+             <span class="nav-label" @onclick="() => servicesOpen = !servicesOpen">
+                <a href="/services" class="nav-link @(IsActive("/services") ? "active" : "")">Services</a>
+                 <span class="nav-caret @(servicesOpen ? "open" : "")">&#9662;</span>
+             </span>
+             <ul class="nav-submenu @(servicesOpen ? "open" : "")">
+                 @if (services != null)
+                 {
+                     foreach (var service in services.Where(s => s.IsPublished))
+                     {
+                         <li><a href="/services?id=@service.Id" class="nav-submenu-item">@service.Name</a></li>
+                     }
+                 }
+                 else
+                 {
+                     <li><span class="nav-submenu-item">Loading...</span></li>
+                 }
+             </ul>
+         </li>
+         <li class="nav-item" @onmouseenter="() => officersOpen = true" @onmouseleave="() => officersOpen = false">
+             <span class="nav-label" @onclick="() => officersOpen = !officersOpen">
+                 <a href="/officers" class="nav-link @(IsActive("/officers") ? "active" : "")">Officers</a>
+                 <span class="nav-caret @(officersOpen ? "open" : "")">&#9662;</span>
+             </span>
+             <ul class="nav-submenu @(officersOpen ? "open" : "")">
+                 @if (academicYears != null)
+                 {
+                     foreach (var year in academicYears)
+                     {
+                         <li><a href="/officers/@Uri.EscapeDataString(year)" class="nav-submenu-item">A.Y. @year</a></li>
+                     }
+                 }
+                 else
+                 {
+                     <li><span class="nav-submenu-item">Loading...</span></li>
+                 }
+             </ul>
+         </li>
+         <li class="nav-item">
+             <a href="/aboutus" class="nav-link @(IsActive("/aboutus") ? "active" : "")">About Us</a>
+         </li>
+         @if (IsUserOfficer)
+         {
+             <li class="nav-item" @onmouseenter="() => managementOpen = true" @onmouseleave="() => managementOpen = false">
+                 <span class="nav-label" @onclick="() => managementOpen = !managementOpen">
+                     <a href="/management" class="nav-link @(IsActive("/management") ? "active" : "")">Management</a>
+                     <span class="nav-caret @(managementOpen ? "open" : "")">&#9662;</span>
+                 </span>
+                 <ul class="nav-submenu @(managementOpen ? "open" : "")">
+                     @if (IsOfficerOrAbove) {
+                         <li><a href="/management/posts" class="nav-submenu-item">Posts</a></li>
+                         <li><a href="/management/events" class="nav-submenu-item">Events</a></li>
+                         <li><a href="/management/services" class="nav-submenu-item">Services</a></li>
+                         <li><a href="/management/aboutus" class="nav-submenu-item">About Us</a></li>
+                         <li><a href="/management/officers" class="nav-submenu-item">Officers</a></li>
+                     }
+                     @if (IsBudgetUser) {
+                         <li><a href="/management/budget" class="nav-submenu-item">Budget</a></li>
+                     }
+                     @if (IsAdviserOrAbove) {
+                         <li><a href="/management/approvals" class="nav-submenu-item">Approvals</a></li>
+                     }
+                 </ul>
+             </li>
+         }
+     </ul>
+
+     <!-- Hamburger button (mobile only) -->
+     <button class="navbar-hamburger @(_mobileOpen ? "open" : "")" @onclick="() => _mobileOpen = !_mobileOpen" aria-label="Menu">
+         <span></span><span></span><span></span>
+     </button>
+ </nav>
+
+ <!-- Mobile drawer (same pattern as NavBar2) -->
+ @if (_mobileOpen)
+ {
+     <div class="nav-mobile-overlay" @onclick="() => _mobileOpen = false">
+         <div class="nav-mobile-drawer" @onclick:stopPropagation="true">
+             <div class="nav-mobile-header">
+                 <span class="nav-mobile-title">Navigation</span>
+                 <button class="nav-mobile-close" @onclick="() => _mobileOpen = false">✕</button>
+             </div>
+
+             <a href="/" class="nav-mobile-link @(IsActive("/") ? "active" : "")" @onclick="() => _mobileOpen = false">Home</a>
+             <a href="/newsfeed" class="nav-mobile-link @(IsActive("/newsfeed") ? "active" : "")" @onclick="() => _mobileOpen = false">News Feed</a>
+
+             <button class="nav-mobile-section @(_mobileServicesOpen ? "open" : "")" @onclick="() => _mobileServicesOpen = !_mobileServicesOpen">
+                 Services <span class="nav-mobile-caret">&#9662;</span>
+             </button>
+             @if (_mobileServicesOpen)
+             {
+                 <div class="nav-mobile-sub">
+                     <a href="/services" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">All Services</a>
+                     @if (services != null)
+                     {
+                         foreach (var service in services.Where(s => s.IsPublished))
+                         {
+                             <a href="/services?id=@service.Id" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">@service.Name</a>
+                         }
+                     }
+                 </div>
+             }
+
+             <button class="nav-mobile-section @(_mobileOfficersOpen ? "open" : "")" @onclick="() => _mobileOfficersOpen = !_mobileOfficersOpen">
+                 Officers <span class="nav-mobile-caret">&#9662;</span>
+             </button>
+             @if (_mobileOfficersOpen)
+             {
+                 <div class="nav-mobile-sub">
+                     <a href="/officers" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">All Officers</a>
+                     @if (academicYears != null)
+                     {
+                         foreach (var year in academicYears)
+                         {
+                             <a href="/officers/@Uri.EscapeDataString(year)" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">A.Y. @year</a>
+                         }
+                     }
+                 </div>
+             }
+
+             <a href="/aboutus" class="nav-mobile-link @(IsActive("/aboutus") ? "active" : "")" @onclick="() => _mobileOpen = false">About Us</a>
+
+             @if (IsUserOfficer)
+             {
+                 <button class="nav-mobile-section @(_mobileMgmtOpen ? "open" : "")" @onclick="() => _mobileMgmtOpen = !_mobileMgmtOpen">
+                     Management <span class="nav-mobile-caret">&#9662;</span>
+                 </button>
+                 @if (_mobileMgmtOpen)
+                 {
+                     <div class="nav-mobile-sub">
+                         @if (IsOfficerOrAbove) {
+                             <a href="/management/posts" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">Posts</a>
+                             <a href="/management/events" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">Events</a>
+                             <a href="/management/services" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">Services</a>
+                             <a href="/management/aboutus" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">About Us</a>
+                             <a href="/management/officers" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">Officers</a>
+                         }
+                         @if (IsBudgetUser) {
+                             <a href="/management/budget" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">Budget</a>
+                         }
+                         @if (IsAdviserOrAbove) {
+                             <a href="/management/approvals" class="nav-mobile-sublink" @onclick="() => _mobileOpen = false">Approvals</a>
+                         }
+                     </div>
+                 }
+             }
+         </div>
+     </div>
+ }
+
+ @code {
+     private bool servicesOpen;
+     private bool officersOpen;
+     private bool managementOpen;
+     private bool _mobileOpen;
+     private bool _mobileServicesOpen;
+     private bool _mobileOfficersOpen;
+     private bool _mobileMgmtOpen;
+     private List<string>? academicYears;
+     private List<ServiceOfferedViewModel>? services;
+
+     private string Role => UserState.CurrentUser?.AccountRole ?? "NonMember";
+     private bool IsUserOfficer => UserState.CurrentUser is not null && (Role is "Officer" or "Admin" or "Adviser" or "Professor" or "DepartmentChairman" || (UserState.CurrentUser.Restriction is not null && UserState.CurrentUser.Restriction.IsOfficer));
+     private bool IsOfficerOrAbove => Role is "Officer" or "Adviser" or "Professor" or "DepartmentChairman" or "Admin";
+     private bool IsAdviserOrAbove => Role is "Adviser" or "DepartmentChairman" or "Admin";
+     private bool IsBudgetUser => Role is "Officer" or "DepartmentChairman" or "Admin";
+
+     protected override async Task OnInitializedAsync()
+     {
+         UserState.OnChange += StateHasChanged;
+         // Load data asynchronously in background without blocking UI (deferred loading)
+         _ = LoadNavDataInBackgroundAsync();
+     }
+
+     private async Task LoadNavDataInBackgroundAsync()
+     {
+         try
+         {
+             academicYears = await OfficersService.GetAcademicYearsAsync();
+             services = await ServicesOfferedService.GetServicesOfferedAsync() ?? new();
+             StateHasChanged();
+         }
+         catch
+         {
+             // Silently fail - show default state
+         }
+     }
+
+     public void Dispose()
+     {
+         UserState.OnChange -= StateHasChanged;
+     }
+
+     private bool IsActive(string href)
+     {
+         var currentPath = new Uri(Nav.Uri).AbsolutePath;
+         if (href == "/")
+             return currentPath == "/";
+         return currentPath.TrimEnd('/').Equals(href.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)
+             || (href == "/management" && currentPath.StartsWith("/management", StringComparison.OrdinalIgnoreCase))
+             || (href == "/officers" && currentPath.StartsWith("/officers", StringComparison.OrdinalIgnoreCase))
+             || (href == "/services" && currentPath.StartsWith("/services", StringComparison.OrdinalIgnoreCase));
+     }
+ }

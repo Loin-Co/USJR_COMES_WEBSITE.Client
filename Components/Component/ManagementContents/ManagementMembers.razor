@@ -1,0 +1,698 @@
+﻿@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.APIs
+@inject IMembersService MembersService
+@inject UserStateService UserState
+@inject IHttpClientFactory HttpClientFactory
+
+<div class="members-wrap">
+
+    <!-- Header -->
+    <div class="members-header">
+        <div class="members-header-left">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="members-header-icon">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <h2 class="members-title">Members</h2>
+            @if (!_loadingUsers && _selectedYear != null)
+            {
+                <span class="members-count-badge">@_filtered.Count</span>
+            }
+        </div>
+        <button class="add-year-btn" @onclick="OpenAddYearModal">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Add S.Y.
+        </button>
+    </div>
+
+    <!-- Academic Year Tabs -->
+    @if (_loadingYears)
+    {
+        <SkeletonMemberRow Count="5" />
+    }
+    else if (_years.Count == 0)
+    {
+        <div class="members-state">No academic years yet. Click <strong>Add S.Y.</strong> to get started.</div>
+    }
+    else
+    {
+        <div class="sy-tabs-bar">
+            @foreach (var yr in _years)
+            {
+                <button class="sy-tab @(yr.Label == _selectedYear?.Label ? "active" : "") @(yr.IsCurrent ? "current" : "")"
+                        @onclick="() => SelectYear(yr)">
+                    S.Y. @yr.Label
+                    @if (yr.IsCurrent)
+                    {
+                        <span class="sy-current-dot" title="Current Year"></span>
+                    }
+                </button>
+            }
+        </div>
+
+        @if (_selectedYear != null)
+        {
+            <!-- Year actions row -->
+            <div class="year-actions-row">
+                <span class="year-actions-label">S.Y. @_selectedYear.Label</span>
+                @if (!_selectedYear.IsCurrent)
+                {
+                    <button class="set-current-btn" @onclick="SetCurrentYear">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Set as Current Year
+                    </button>
+                }
+                else
+                {
+                    <span class="current-year-badge">Current Year</span>
+                }
+            </div>
+
+            <!-- Filters -->
+            <div class="members-filters">
+                <div class="status-tabs">
+                    <button class="status-tab @(_statusFilter == "all" ? "active" : "")"     @onclick='() => _statusFilter = "all"'>All</button>
+                    <button class="status-tab @(_statusFilter == "member" ? "active" : "")"  @onclick='() => _statusFilter = "member"'>Members</button>
+                    <button class="status-tab @(_statusFilter == "nonmember" ? "active" : "")" @onclick='() => _statusFilter = "nonmember"'>Non-Members</button>
+                </div>
+                <div class="members-search-row">
+                    <div class="members-search-wrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon-inline">
+                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input class="members-search" type="text" placeholder="Search by name or IDâ€¦"
+                               @bind="_search" @bind:event="oninput" />
+                    </div>
+                    <select class="members-year-select" @bind="_yearLevelFilter">
+                        <option value="">All Year Levels</option>
+                        @foreach (var yl in _allYearLevels)
+                        {
+                            <option value="@yl">@yl</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <!-- Member List -->
+            @if (_loadingUsers)
+            {
+                <SkeletonMemberRow Count="5" />
+            }
+            else if (_filtered.Count == 0)
+            {
+                <div class="members-state">No users match the current filters.</div>
+            }
+            else
+            {
+                <div class="members-list">
+                    @foreach (var m in _filtered)
+                    {
+                        <div class="member-row @(m.IsYearMember ? "is-member" : "")">
+                            <!-- Avatar -->
+                            <div class="member-avatar">
+                                <span class="member-initials">@m.Initials</span>
+                            </div>
+
+                            <!-- Info -->
+                            <div class="member-info">
+                                <div class="member-name">@m.FullName</div>
+                                <div class="member-meta">
+                                    <span class="member-id">@m.SchoolId</span>
+                                    <span class="member-sep">Â·</span>
+                                    <span>@m.SchoolEmail</span>
+                                </div>
+                                <div class="member-sub">
+                                    <span class="member-year">@m.YearLevel</span>
+                                    <span class="member-sep">Â·</span>
+                                    <span class="member-joined">Joined @m.JoinedYear</span>
+                                    @if (m.IsYearMember && m.MembershipRecord?.PromotedAt != null)
+                                    {
+                                        <span class="member-sep">Â·</span>
+                                        <span class="member-promoted">
+                                            Promoted @m.MembershipRecord.PromotedAt.Value.ToString("MMM d, yyyy")
+                                            @if (!string.IsNullOrEmpty(m.MembershipRecord.PromotedByName))
+                                            {
+                                                <span class="member-promoted-by"> by @m.MembershipRecord.PromotedByName</span>
+                                            }
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Badges -->
+                            <div class="member-badges">
+                                @if (m.IsOfficerOfYear)
+                                {
+                                    <span class="mbadge mbadge-officer">Officer</span>
+                                }
+                                @if (m.IsYearMember)
+                                {
+                                    <span class="mbadge mbadge-member">Member</span>
+                                    @if (m.MembershipRecord?.HasReceipt == true)
+                                    {
+                                        <a href="@ApiEndpoints.Membership.Receipt(m.MembershipRecord.Id)"
+                                           target="_blank" class="mbadge mbadge-receipt" title="View receipt">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                                <polyline points="14 2 14 8 20 8"/>
+                                            </svg>
+                                            Receipt
+                                        </a>
+                                    }
+                                }
+                                else if (!m.IsOfficerOfYear)
+                                {
+                                    <span class="mbadge mbadge-nonmember">Non-Member</span>
+                                }
+                                @if (_membershipRequests.TryGetValue(m.SchoolId, out var svcReq) && svcReq.HasAttachment && !string.IsNullOrEmpty(svcReq.FileApiUrl))
+                                {
+                                    <a href="@ApiEndpoints.Files.ToFullUrl(svcReq.FileApiUrl)"
+                                       target="_blank"
+                                       class="mbadge mbadge-receipt"
+                                       title="View submitted proof of payment">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                            <polyline points="14 2 14 8 20 8"/>
+                                        </svg>
+                                        Proof
+                                    </a>
+                                }
+                                <span class="mbadge mbadge-role">@m.AccountRole</span>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="member-actions">
+                                @if (m.IsOfficerOfYear && !m.IsYearMember)
+                                {
+                                    <!-- Officer bypass: can still be promoted to member but show context -->
+                                    <button class="promote-btn promote-btn-officer" @onclick="() => OpenPromoteModal(m)">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                            <polyline points="20 6 9 17 4 12"/>
+                                        </svg>
+                                        Set Member
+                                    </button>
+                                }
+                                else if (!m.IsOfficerOfYear && !m.IsYearMember)
+                                {
+                                    <button class="promote-btn" @onclick="() => OpenPromoteModal(m)">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                            <polyline points="20 6 9 17 4 12"/>
+                                        </svg>
+                                        Set Member
+                                    </button>
+                                }
+                                else if (m.IsYearMember)
+                                {
+                                    <button class="revoke-btn" @onclick="() => ConfirmRevoke(m)">
+                                        Revoke
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    }
+</div>
+
+<!-- Add Academic Year Modal -->
+@if (_addYearOpen)
+{
+    <div class="mo-overlay" @onclick="CloseAllModals">
+        <div class="mo-card" @onclick:stopPropagation="true">
+            <div class="mo-header">
+                <h3 class="mo-title">Add Academic Year</h3>
+            </div>
+            <div class="mo-body">
+                <label class="mo-label">School Year Label</label>
+                <input class="mo-input" type="text" placeholder="e.g. 2024-2025" @bind="_newYearLabel" />
+
+                <div class="mo-checkbox-row">
+                    <input type="checkbox" id="is-current-cb" @bind="_newYearIsCurrent" />
+                    <label for="is-current-cb" class="mo-checkbox-label">Set as Current Year</label>
+                </div>
+
+                @if (_newYearIsCurrent)
+                {
+                    <div class="mo-warn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        All current member statuses will reset. Every user starts as Non-Member for the new year.
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_modalError))
+                {
+                    <div class="mo-error">@_modalError</div>
+                }
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
+                <button class="btn-save" @onclick="AddYear" disabled="@_saving">
+                    @(_saving ? "Savingâ€¦" : "Add S.Y.")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Promote to Member Modal -->
+@if (_promoteTarget != null)
+{
+    <div class="mo-overlay" @onclick="CloseAllModals">
+        <div class="mo-card mo-card-promote" @onclick:stopPropagation="true">
+            <div class="mo-header">
+                <h3 class="mo-title">Set as Member</h3>
+            </div>
+            <div class="mo-body">
+                <!-- User info summary -->
+                <div class="promote-user-card">
+                    <div class="promote-avatar">@_promoteTarget.Initials</div>
+                    <div class="promote-user-info">
+                        <div class="promote-user-name">@_promoteTarget.FullName</div>
+                        <div class="promote-user-meta">@_promoteTarget.SchoolId Â· @_promoteTarget.YearLevel</div>
+                    </div>
+                    <span class="promote-year-badge">S.Y. @_selectedYear?.Label</span>
+                </div>
+
+                <!-- Existing proof of payment from service request -->
+                @if (_hasExistingProof)
+                {
+                    <div class="mo-field">
+                        <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);border-radius:8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            <span style="font-size:13px;color:var(--text-secondary,#9ca3af);flex:1;">Proof of payment already submitted</span>
+                            <a href="@_existingProofUrl" target="_blank" style="font-size:12px;color:#22c55e;text-decoration:underline;">View</a>
+                        </div>
+                    </div>
+                }
+
+                <!-- Receipt upload (required only if no existing proof) -->
+                <div class="mo-field">
+                    <label class="mo-label">
+                        @(_hasExistingProof ? "Upload Different Receipt (optional)" : "Membership Receipt")
+                        @if (!_hasExistingProof)
+                        {
+                            <span class="required">*</span>
+                        }
+                        <span class="mo-label-hint">(JPG, PNG, PDF â€” proof of payment)</span>
+                    </label>
+
+                    @if (!string.IsNullOrEmpty(_receiptPreview))
+                    {
+                        <div class="receipt-preview-wrap">
+                            <img src="@_receiptPreview" alt="Receipt preview" class="receipt-preview-img" />
+                            <button class="btn-remove-receipt" @onclick="ClearReceipt">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                                Remove
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <label class="receipt-upload-area">
+                            <InputFile OnChange="OnReceiptSelected" accept="image/*,application/pdf" id="receipt-input" />
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="upload-icon">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <span class="upload-text">@(_hasExistingProof ? "Click to upload a different receipt" : "Click to upload receipt")</span>
+                            <span class="upload-hint">Max 5 MB</span>
+                        </label>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(_modalError))
+                {
+                    <div class="mo-error">@_modalError</div>
+                }
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
+                <button class="btn-save btn-promote" @onclick="ConfirmPromote"
+                        disabled="@(_saving || (string.IsNullOrEmpty(_receiptData) && !_hasExistingProof))">
+                    @(_saving ? "Savingâ€¦" : "Confirm Membership")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Revoke Confirm Modal -->
+@if (_revokeTarget != null)
+{
+    <div class="mo-overlay" @onclick="() => _revokeTarget = null">
+        <div class="mo-card mo-card-sm" @onclick:stopPropagation="true">
+            <div class="mo-header mo-header-danger">
+                <h3 class="mo-title mo-title-danger">Revoke Membership</h3>
+            </div>
+            <div class="mo-body">
+                <p class="delete-confirm-text">Remove membership for S.Y. @_selectedYear?.Label from:</p>
+                <p class="delete-confirm-name">@_revokeTarget.FullName</p>
+                <p class="delete-confirm-detail">@_revokeTarget.SchoolId</p>
+                <p class="delete-confirm-warning">This cannot be undone for this year.</p>
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="() => _revokeTarget = null">Cancel</button>
+                <button class="btn-delete" @onclick="DoRevoke" disabled="@_saving">
+                    @(_saving ? "Revokingâ€¦" : "Revoke")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<SuccessPopup IsVisible="_showSuccess" Message="@_successMessage" OnOkClick="() => _showSuccess = false" />
+
+@code {
+    private HttpClient Http => HttpClientFactory.CreateClient("general");
+    // State
+    private List<AcademicYearViewModel> _years = new();
+    private AcademicYearViewModel? _selectedYear;
+    private List<MemberViewModel> _users = new();
+    private bool _loadingYears = true;
+    private bool _loadingUsers = false;
+    private bool _saving = false;
+    private string _modalError = string.Empty;
+    private bool _showSuccess { get; set; }
+    private string _successMessage = "Operation successful.";
+
+    // Filters
+    private string _statusFilter = "all";
+    private string _search = string.Empty;
+    private string _yearLevelFilter = string.Empty;
+    private List<string> _allYearLevels = new();
+
+    // Add Year modal
+    private bool _addYearOpen = false;
+    private string _newYearLabel = string.Empty;
+    private bool _newYearIsCurrent = false;
+
+    // Promote modal
+    private MemberViewModel? _promoteTarget;
+    private string _receiptData = string.Empty;
+    private string _receiptMime = string.Empty;
+    private string _receiptPreview = string.Empty;
+    private bool _hasExistingProof = false;
+    private string _existingProofUrl = string.Empty;
+
+    // Revoke confirm
+    private MemberViewModel? _revokeTarget;
+
+    // Membership service requests (from payment services marked IsForMembership)
+    private Dictionary<string, MembershipSvcReq> _membershipRequests = new();
+
+    private List<MemberViewModel> _filtered => _users
+        .Where(m =>
+            (_statusFilter == "all" ||
+             (_statusFilter == "member" && m.HasYearAccess) ||
+             (_statusFilter == "nonmember" && !m.HasYearAccess)) &&
+            (string.IsNullOrEmpty(_yearLevelFilter) || m.YearLevel == _yearLevelFilter) &&
+            (string.IsNullOrEmpty(_search) ||
+             m.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+             m.SchoolId.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+             m.SchoolEmail.Contains(_search, StringComparison.OrdinalIgnoreCase))
+        )
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loadingYears = true;
+        _ = LoadYearsInBackground();
+    }
+
+    private async Task LoadYearsInBackground()
+    {
+        _years = await MembersService.GetYearsAsync();
+        _selectedYear = _years.FirstOrDefault(y => y.IsCurrent) ?? _years.FirstOrDefault();
+        _loadingYears = false;
+        StateHasChanged();
+        if (_selectedYear != null)
+            _ = LoadUsersInBackground(_selectedYear.Label);
+    }
+
+    private async Task LoadYears()
+    {
+        _loadingYears = true;
+        _years = await MembersService.GetYearsAsync();
+        _selectedYear = _years.FirstOrDefault(y => y.IsCurrent) ?? _years.FirstOrDefault();
+        _loadingYears = false;
+        if (_selectedYear != null)
+            await LoadUsersForYear(_selectedYear.Label);
+    }
+
+    private async Task LoadUsersInBackground(string label)
+    {
+        _loadingUsers = true;
+        StateHasChanged();
+        _users = await MembersService.GetUsersForYearAsync(label);
+        _allYearLevels = _users
+            .Select(u => u.YearLevel)
+            .Where(y => !string.IsNullOrEmpty(y))
+            .Distinct()
+            .OrderBy(y => y)
+            .ToList();
+        _loadingUsers = false;
+        _ = LoadMembershipRequestsInBackground(label);
+        StateHasChanged();
+    }
+
+    private async Task LoadMembershipRequestsInBackground(string yearLabel)
+    {
+        try
+        {
+            var url = $"{ApiEndpoints.ServiceRequests.Membership}?academicYear={Uri.EscapeDataString(yearLabel)}";
+            var list = await Http.GetFromJsonAsync<List<MembershipSvcReq>>(url) ?? new();
+            _membershipRequests = list
+                .GroupBy(r => r.SchoolId ?? "")
+                .Where(g => !string.IsNullOrEmpty(g.Key))
+                .ToDictionary(g => g.Key, g => g.First());
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { }
+    }
+
+    private async Task SelectYear(AcademicYearViewModel year)
+    {
+        _selectedYear = year;
+        _statusFilter = "all";
+        _search = string.Empty;
+        _yearLevelFilter = string.Empty;
+        await LoadUsersForYear(year.Label);
+    }
+
+    private async Task LoadUsersForYear(string label)
+    {
+        _loadingUsers = true;
+        StateHasChanged();
+        _users = await MembersService.GetUsersForYearAsync(label);
+        _allYearLevels = _users
+            .Select(u => u.YearLevel)
+            .Where(y => !string.IsNullOrEmpty(y))
+            .Distinct()
+            .OrderBy(y => y)
+            .ToList();
+        _loadingUsers = false;
+        _ = LoadMembershipRequestsInBackground(label);
+    }
+
+    // â”€â”€ Add Year â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private void OpenAddYearModal()
+    {
+        _newYearLabel = string.Empty;
+        _newYearIsCurrent = false;
+        _modalError = string.Empty;
+        _addYearOpen = true;
+    }
+
+    private async Task AddYear()
+    {
+        var label = _newYearLabel.Trim();
+        if (string.IsNullOrEmpty(label)) { _modalError = "Please enter a school year."; return; }
+
+        _saving = true;
+        var created = await MembersService.CreateYearAsync(label, _newYearIsCurrent);
+        _saving = false;
+
+        if (created == null) { _modalError = "Failed to add year. It may already exist."; return; }
+
+        _addYearOpen = false;
+        await LoadYears();
+        var yr = _years.FirstOrDefault(y => y.Label == label);
+        if (yr != null) await SelectYear(yr);
+    }
+
+    // â”€â”€ Set Current Year â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private async Task SetCurrentYear()
+    {
+        if (_selectedYear == null) return;
+        _saving = true;
+        var ok = await MembersService.SetCurrentYearAsync(_selectedYear.Id);
+        _saving = false;
+        if (ok) await LoadYears();
+    }
+
+    // â”€â”€ Promote â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private void OpenPromoteModal(MemberViewModel member)
+    {
+        _promoteTarget = member;
+        _receiptData = string.Empty;
+        _receiptMime = string.Empty;
+        _receiptPreview = string.Empty;
+        _modalError = string.Empty;
+
+        if (_membershipRequests.TryGetValue(member.SchoolId, out var svcReq) && svcReq.HasAttachment && !string.IsNullOrEmpty(svcReq.FileApiUrl))
+        {
+            _hasExistingProof = true;
+            _existingProofUrl = ApiEndpoints.Files.ToFullUrl(svcReq.FileApiUrl);
+        }
+        else
+        {
+            _hasExistingProof = false;
+            _existingProofUrl = string.Empty;
+        }
+    }
+
+    private async Task OnReceiptSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+
+        const long maxSize = 5 * 1024 * 1024;
+
+        if (file.Size > maxSize)
+        {
+            _modalError = $"File is too large ({(file.Size / 1024.0 / 1024.0):F1} MB). Maximum allowed size is 5 MB.";
+            return;
+        }
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxSize);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            _receiptData = base64;
+            _receiptMime = file.ContentType;
+            _modalError = string.Empty;
+            if (file.ContentType.StartsWith("image/"))
+                _receiptPreview = $"data:{file.ContentType};base64,{base64}";
+            else
+                _receiptPreview = string.Empty;
+        }
+        catch (IOException)
+        {
+            _modalError = "File is too large. Maximum allowed size is 5 MB.";
+            _receiptData = string.Empty;
+            _receiptMime = string.Empty;
+            _receiptPreview = string.Empty;
+        }
+        catch
+        {
+            _modalError = "Failed to read the file. Please try a different file.";
+            _receiptData = string.Empty;
+            _receiptMime = string.Empty;
+            _receiptPreview = string.Empty;
+        }
+    }
+
+    private void ClearReceipt()
+    {
+        _receiptData = string.Empty;
+        _receiptMime = string.Empty;
+        _receiptPreview = string.Empty;
+    }
+
+    private async Task ConfirmPromote()
+    {
+        if (_promoteTarget == null || _selectedYear == null) return;
+        if (string.IsNullOrEmpty(_receiptData) && !_hasExistingProof) { _modalError = "Receipt image is required."; return; }
+
+        _saving = true;
+        var req = new PromoteMemberRequest
+        {
+            SchoolId            = _promoteTarget.SchoolId,
+            AcademicYear        = _selectedYear.Label,
+            ReceiptData         = _receiptData,
+            ReceiptMimeType     = _receiptMime,
+            PromotedBySchoolId  = UserState.CurrentUser?.SchoolId
+        };
+
+        var target = _promoteTarget;
+        var idx = _users.IndexOf(target);
+        _users.Remove(target);
+        _promoteTarget = null;
+
+        var ok = await MembersService.PromoteAsync(req);
+        _saving = false;
+
+        if (!ok)
+        {
+            _users.Insert(Math.Max(0, idx), target);
+            _modalError = "Failed to promote. Please try again.";
+            return;
+        }
+        _successMessage = "Member promoted successfully.";
+        _showSuccess = true;
+    }
+
+    // â”€â”€ Revoke â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private void ConfirmRevoke(MemberViewModel member) => _revokeTarget = member;
+
+    private async Task DoRevoke()
+    {
+        if (_revokeTarget == null || _selectedYear == null) return;
+
+        var target = _revokeTarget;
+        var idx = _users.IndexOf(target);
+        _users.Remove(target);
+        _revokeTarget = null;
+
+        _saving = true;
+        var ok = await MembersService.RevokeAsync(_selectedYear.Label, target.SchoolId);
+        _saving = false;
+
+        if (!ok)
+        {
+            _users.Insert(Math.Max(0, idx), target);
+            return;
+        }
+        _successMessage = "Membership revoked.";
+        _showSuccess = true;
+    }
+
+    private void CloseAllModals()
+    {
+        _addYearOpen = false;
+        _promoteTarget = null;
+        _revokeTarget = null;
+        _modalError = string.Empty;
+        _hasExistingProof = false;
+        _existingProofUrl = string.Empty;
+    }
+
+    private class MembershipSvcReq
+    {
+        public int Id { get; set; }
+        public string? SchoolId { get; set; }
+        public string? UserName { get; set; }
+        public string? Status { get; set; }
+        public string? FileApiUrl { get; set; }
+        public bool HasAttachment { get; set; }
+    }
+}

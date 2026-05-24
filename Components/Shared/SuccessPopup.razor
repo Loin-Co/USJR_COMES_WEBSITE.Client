@@ -1,0 +1,32 @@
+@if (IsVisible)
+{
+    <div class="modal-overlay">
+        <div class="success-popup-card">
+            <div class="success-icon-container">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6ed42a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+            </div>
+            <h2 class="success-title">Success!</h2>
+            <p class="success-message">@Message</p>
+            <button class="success-btn" @onclick="HandleOkClick">OK</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public string Message { get; set; } = "Operation successful.";
+
+    [Parameter]
+    public EventCallback OnOkClick { get; set; }
+
+    private async Task HandleOkClick()
+    {
+        await OnOkClick.InvokeAsync();
+    }
+}

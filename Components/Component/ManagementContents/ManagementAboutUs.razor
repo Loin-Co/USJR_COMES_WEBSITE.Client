@@ -1,0 +1,416 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.APIs
+@inject IAboutUsService AboutUsService
+@inject IOfficersService OfficersService
+@inject UserStateService UserState
+@inject IHttpClientFactory HttpClientFactory
+
+<div class="management-aboutus">
+    <div class="management-section-header">
+        <h2 class="management-section-title">About Us Management</h2>
+        @if (!CanDirectSave)
+        {
+            <span class="au-role-note">Your changes will be reviewed by an Adviser before going live.</span>
+        }
+    </div>
+
+    @if (_saving || _proposing)
+    {
+        <div class="au-status-saving">@(_proposing ? "Submittingâ€¦" : "Savingâ€¦")</div>
+    }
+    @if (!string.IsNullOrEmpty(_saveMessage))
+    {
+        <div class="au-save-message @(_saveSuccess ? "au-save-success" : "au-save-error")">@_saveMessage</div>
+    }
+
+    @if (_form == null)
+    {
+        <SkeletonAboutUs />
+    }
+    else
+    {
+        <div class="aboutus-edit-form">
+
+            <!-- Banner Image -->
+            <div class="form-section">
+                <h3 class="form-section-title">Banner Image</h3>
+                <div class="banner-preview-row">
+                    @if (!string.IsNullOrEmpty(_bannerPreview))
+                    {
+                        <img src="@_bannerPreview" alt="Banner Preview" class="banner-preview-img" />
+                    }
+                    else if (_bannerLoading)
+                    {
+                        <div class="banner-preview-placeholder">Loading current bannerâ€¦</div>
+                    }
+                    else if (!string.IsNullOrEmpty(_bannerDataUrl))
+                    {
+                        <img src="@_bannerDataUrl" alt="Current Banner" class="banner-preview-img" />
+                    }
+                    else
+                    {
+                        <div class="banner-preview-placeholder">No banner image</div>
+                    }
+                </div>
+                <div class="file-upload-row">
+                    <InputFile OnChange="OnBannerInputFileChanged" accept="image/*" id="banner-file-input" style="display:none;" />
+                    <label for="banner-file-input" class="file-upload-btn">Upload Banner Image</label>
+                    @if (!string.IsNullOrEmpty(_bannerPreview))
+                    {
+                        <button class="btn-remove" @onclick="ClearBanner">Remove New Image</button>
+                    }
+                </div>
+            </div>
+
+            <!-- Page Title -->
+            <div class="form-section">
+                <h3 class="form-section-title">Page Title</h3>
+                <input class="management-input" type="text" placeholder="e.g. ABOUT US" @bind="_form.Title" />
+            </div>
+
+            <!-- About Us Description -->
+            <div class="form-section">
+                <h3 class="form-section-title">About Us Description</h3>
+                <textarea class="management-textarea" rows="4" placeholder="Describe the organization..." @bind="_form.AboutUsText"></textarea>
+            </div>
+
+            <!-- Vision & Mission -->
+            <div class="form-section form-section-row">
+                <div class="form-half">
+                    <h3 class="form-section-title">Vision</h3>
+                    <textarea class="management-textarea" rows="5" placeholder="Our vision..." @bind="_form.VisionText"></textarea>
+                </div>
+                <div class="form-half">
+                    <h3 class="form-section-title">Mission</h3>
+                    <textarea class="management-textarea" rows="5" placeholder="Our mission..." @bind="_form.MissionText"></textarea>
+                </div>
+            </div>
+
+            <!-- Academic Year -->
+            <div class="form-section">
+                <h3 class="form-section-title">Academic Year</h3>
+                <input class="management-input" type="text" placeholder="e.g. 2024-2025" @bind="_form.AcademicYear" />
+            </div>
+
+            <!-- President Section -->
+            <div class="form-section">
+                <h3 class="form-section-title">President</h3>
+                <div class="president-select-row">
+                    <select class="management-select" @bind="_selectedPresidentIdStr">
+                        <option value="">-- Select President --</option>
+                        @foreach (var officer in _officers)
+                        {
+                            <option value="@officer.Id">@officer.Name (@officer.Position, @officer.AcademicYear)</option>
+                        }
+                    </select>
+                </div>
+                @if (_selectedOfficer != null)
+                {
+                    <div class="selected-president-card">
+                        @if (!string.IsNullOrEmpty(_selectedOfficer.ImageUrl) && !string.IsNullOrEmpty(_officerImageDataUrl))
+                        {
+                            <img src="@_officerImageDataUrl" alt="@_selectedOfficer.Name" class="president-thumb" />
+                        }
+                        else if (!string.IsNullOrEmpty(_selectedOfficer.ImageUrl) && _officerImageLoading)
+                        {
+                            <div class="president-thumb-placeholder"></div>
+                        }
+                        else if (string.IsNullOrEmpty(_selectedOfficer.ImageUrl))
+                        {
+                            <div class="president-thumb-placeholder"></div>
+                        }
+                        <div>
+                            <div class="president-name-label">@_selectedOfficer.Name</div>
+                            <div class="president-position-label">@_selectedOfficer.Position</div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- President's Speech / Personal Message -->
+            <div class="form-section">
+                <h3 class="form-section-title">President's Speech / Personal Message</h3>
+                <textarea class="management-textarea" rows="6" placeholder="President's personal message..." @bind="_form.PresidentPersonalMessage"></textarea>
+            </div>
+
+            <!-- Save / Propose Button -->
+            <div class="form-actions">
+                @if (CanDirectSave)
+                {
+                    <button class="btn-save-aboutus" @onclick="SaveAsync" disabled="@_saving">
+                        @(_saving ? "Saving..." : "Save Changes")
+                    </button>
+                }
+                else
+                {
+                    <button class="btn-save-aboutus btn-propose-aboutus" @onclick="() => _showProposeConfirm = true" disabled="@_proposing">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:5px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        @(_proposing ? "Submittingâ€¦" : "Submit for Approval")
+                    </button>
+                }
+            </div>
+
+        </div>
+    }
+</div>
+
+@if (_showProposeConfirm)
+{
+    <div class="au-modal-overlay" @onclick="() => _showProposeConfirm = false">
+        <div class="au-modal" @onclick:stopPropagation>
+            <div class="au-modal-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </div>
+            <h3 class="au-modal-title">Submit for Approval?</h3>
+            <p class="au-modal-body">
+                Your changes will be sent to the adviser for review.<br />
+                They won't go live on the About Us page until approved.
+            </p>
+            <div class="au-modal-actions">
+                <button class="au-modal-btn-cancel" @onclick="() => _showProposeConfirm = false">Cancel</button>
+                <button class="au-modal-btn-confirm" @onclick="ProposeAsync" disabled="@_proposing">
+                    @(_proposing ? "Submittingâ€¦" : "Yes, Submit")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<SuccessPopup IsVisible="_showSuccess" Message="@_successMessage" OnOkClick="() => _showSuccess = false" />
+
+@code {
+    private AboutUsContentViewModel? _form;
+    private List<OfficerViewModel> _officers = new();
+
+    // Banner state
+    private string _bannerPreview = string.Empty;   // newly uploaded (data URL)
+    private string? _bannerDataUrl;                  // existing banner fetched server-side
+    private bool _bannerLoading;
+
+    // Officer image
+    private string? _officerImageDataUrl;
+    private bool _officerImageLoading;
+
+    // Action state
+    private bool _saving = false;
+    private bool _proposing = false;
+    private bool _showProposeConfirm = false;
+    private bool _saveSuccess = false;
+    private string _saveMessage = string.Empty;
+    private bool _showSuccess { get; set; }
+    private string _successMessage = "Changes saved successfully.";
+
+    private bool CanDirectSave => UserState.CurrentUser?.AccountRole.ToString() is "Adviser" or "DepartmentChairman" or "Admin";
+
+    private HttpClient Http => HttpClientFactory.CreateClient("general");
+
+    private string _selectedPresidentIdStr
+    {
+        get => _form?.PresidentId?.ToString() ?? "";
+        set
+        {
+            if (_form == null) return;
+            if (int.TryParse(value, out var id))
+            {
+                _form.PresidentId = id;
+                var officer = _officers.FirstOrDefault(o => o.Id == id);
+                if (_selectedOfficer?.Id != id)
+                {
+                    _selectedOfficer = officer;
+                    _officerImageDataUrl = null;
+                    if (!string.IsNullOrEmpty(officer?.ImageUrl))
+                        _ = LoadOfficerImageAsync(officer!);
+                }
+            }
+            else
+            {
+                _form.PresidentId = null;
+                _selectedOfficer = null;
+                _officerImageDataUrl = null;
+            }
+        }
+    }
+
+    private OfficerViewModel? _selectedOfficer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _officers = await OfficersService.GetAllOfficersAsync() ?? new();
+
+        var content = await AboutUsService.GetAboutUsContentAsync();
+        if (content != null)
+        {
+            _form = content;
+            _selectedOfficer = _form.PresidentId.HasValue
+                ? _officers.FirstOrDefault(o => o.Id == _form.PresidentId.Value)
+                : null;
+
+            // Fetch banner server-side (respects the no-browser-img-to-backend rule)
+            if (!string.IsNullOrEmpty(_form.BannerImageUrl))
+                _ = LoadBannerAsync();
+
+            // Fetch selected officer image
+            if (_selectedOfficer != null && !string.IsNullOrEmpty(_selectedOfficer.ImageUrl))
+                _ = LoadOfficerImageAsync(_selectedOfficer);
+        }
+        else
+        {
+            _form = new AboutUsContentViewModel
+            {
+                Title = "ABOUT US",
+                AboutUsText = "",
+                VisionText = "",
+                MissionText = "",
+                AcademicYear = "",
+                PresidentPersonalMessage = ""
+            };
+        }
+    }
+
+    private async Task LoadBannerAsync()
+    {
+        if (string.IsNullOrEmpty(_form?.BannerImageUrl)) return;
+        _bannerLoading = true;
+        StateHasChanged();
+        try
+        {
+            var url = ApiEndpoints.Files.ToFullUrl(_form.BannerImageUrl);
+            var resp = await Http.GetAsync(url);
+            if (resp.IsSuccessStatusCode)
+            {
+                var bytes = await resp.Content.ReadAsByteArrayAsync();
+                var mime = resp.Content.Headers.ContentType?.MediaType ?? "image/png";
+                if (bytes.Length > 0)
+                    _bannerDataUrl = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+            }
+        }
+        catch { }
+        _bannerLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadOfficerImageAsync(OfficerViewModel officer)
+    {
+        if (string.IsNullOrEmpty(officer.ImageUrl)) return;
+        _officerImageLoading = true;
+        StateHasChanged();
+        try
+        {
+            var url = ApiEndpoints.Files.ToFullUrl(officer.ImageUrl);
+            var resp = await Http.GetAsync(url);
+            if (resp.IsSuccessStatusCode)
+            {
+                var bytes = await resp.Content.ReadAsByteArrayAsync();
+                var mime = resp.Content.Headers.ContentType?.MediaType ?? "image/png";
+                if (bytes.Length > 0)
+                    _officerImageDataUrl = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+            }
+        }
+        catch { }
+        _officerImageLoading = false;
+        StateHasChanged();
+    }
+
+    private void ClearBanner()
+    {
+        _bannerPreview = string.Empty;
+        if (_form != null) _form.BannerImageBase64 = null;
+    }
+
+    private async Task OnBannerInputFileChanged(Microsoft.AspNetCore.Components.Forms.InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null || _form == null) return;
+
+        const long maxSize = 10 * 1024 * 1024; // 10MB
+        using var stream = file.OpenReadStream(maxSize);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        var bytes = ms.ToArray();
+        var base64 = Convert.ToBase64String(bytes);
+        var mime = file.ContentType;
+        var dataUrl = $"data:{mime};base64,{base64}";
+        _form.BannerImageBase64 = dataUrl;
+        _bannerPreview = dataUrl;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_form == null || _saving) return;
+        _saving = true;
+        _saveMessage = string.Empty;
+        StateHasChanged();
+
+        var success = await AboutUsService.SaveAboutUsContentAsync(_form);
+        _saving = false;
+        _saveSuccess = success;
+        _saveMessage = success ? "Changes saved successfully." : "Failed to save. Please try again.";
+
+        if (success)
+        {
+            var updated = await AboutUsService.GetAboutUsContentAsync();
+            if (updated != null)
+            {
+                _form = updated;
+                _bannerPreview = string.Empty;
+                _bannerDataUrl = null;
+                _selectedOfficer = _form.PresidentId.HasValue
+                    ? _officers.FirstOrDefault(o => o.Id == _form.PresidentId.Value)
+                    : null;
+                if (!string.IsNullOrEmpty(_form.BannerImageUrl))
+                    _ = LoadBannerAsync();
+            }
+            _successMessage = "Changes saved successfully.";
+            _showSuccess = true;
+        }
+        StateHasChanged();
+    }
+
+    private async Task ProposeAsync()
+    {
+        if (_form == null || _proposing) return;
+        _showProposeConfirm = false;
+        _proposing = true;
+        _saveMessage = string.Empty;
+        StateHasChanged();
+
+        var request = new
+        {
+            title                    = _form.Title,
+            aboutUsText              = _form.AboutUsText,
+            visionText               = _form.VisionText,
+            missionText              = _form.MissionText,
+            academicYear             = _form.AcademicYear,
+            presidentId              = _form.PresidentId,
+            presidentPersonalMessage = _form.PresidentPersonalMessage,
+            proposedBySchoolId       = UserState.CurrentUser?.SchoolId ?? "",
+            bannerImageBase64        = !string.IsNullOrEmpty(_bannerPreview) ? _bannerPreview : null,
+        };
+
+        try
+        {
+            var resp = await Http.PostAsJsonAsync(ApiEndpoints.AboutUsChanges.Propose, request);
+            _saveSuccess = resp.IsSuccessStatusCode;
+            _saveMessage = resp.IsSuccessStatusCode
+                ? "Your changes have been submitted for adviser review."
+                : "Failed to submit. Please try again.";
+
+            if (resp.IsSuccessStatusCode)
+            {
+                _bannerPreview = string.Empty;
+                _form.BannerImageBase64 = null;
+                _successMessage = "Changes submitted for adviser review.";
+                _showSuccess = true;
+            }
+        }
+        catch
+        {
+            _saveSuccess = false;
+            _saveMessage = "An error occurred. Please try again.";
+        }
+
+        _proposing = false;
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,27 @@
+﻿@page "/officers"
+@page "/officers/{AcademicYear}"
+
+<div class="officers-container">
+    <nav class="site-nav">
+        <NavBar2 />
+    </nav>
+
+    <div class="spacer-top"></div>
+
+    <main class="main-content-row">
+        <section class="officers-content">
+            <OfficersContent AcademicYear="@AcademicYear" />
+        </section>
+    </main>
+
+    <div class="spacer-bottom"></div>
+
+    <footer class="site-footer">
+        <Footer />
+    </footer>
+</div>
+
+@code {
+    [Parameter]
+    public string? AcademicYear { get; set; }
+}

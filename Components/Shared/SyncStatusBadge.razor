@@ -1,0 +1,121 @@
+@inject IOfflineSyncService OfflineSync
+@implements IDisposable
+
+<div class="sync-status-badge sync-status-@GetStatusClass()">
+    @if (OfflineSync.IsSyncing)
+    {
+        <span class="sync-spinner"></span>
+        <span>Syncing…</span>
+    }
+    else if (!OfflineSync.IsOnline)
+    {
+        <span class="sync-dot sync-dot-grey"></span>
+        <span>Offline</span>
+    }
+    else if (OfflineSync.PendingCount > 0)
+    {
+        <span class="sync-dot sync-dot-yellow"></span>
+        <span>@OfflineSync.PendingCount item@(OfflineSync.PendingCount == 1 ? "" : "s") not yet synced to database</span>
+    }
+    else
+    {
+        <span class="sync-dot sync-dot-green"></span>
+        <span>
+            All good — synced
+            @if (OfflineSync.LastSyncedAt.HasValue)
+            {
+                <span class="sync-time"> (@FormatTime(OfflineSync.LastSyncedAt.Value))</span>
+            }
+        </span>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        OfflineSync.OnChange += HandleChange;
+    }
+
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => OfflineSync.OnChange -= HandleChange;
+
+    private string GetStatusClass() => OfflineSync.IsSyncing ? "syncing"
+        : !OfflineSync.IsOnline ? "offline"
+        : OfflineSync.PendingCount > 0 ? "pending"
+        : "synced";
+
+    private static string FormatTime(DateTime dt)
+    {
+        var diff = DateTime.UtcNow - dt;
+        if (diff.TotalSeconds < 60) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        return dt.ToLocalTime().ToString("h:mm tt");
+    }
+}
+
+<style>
+    .sync-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 20px;
+        border: 1px solid transparent;
+        font-weight: 500;
+    }
+
+    .sync-status-synced {
+        background: rgba(40, 180, 80, 0.12);
+        border-color: rgba(40, 180, 80, 0.3);
+        color: #28b450;
+    }
+
+    .sync-status-pending {
+        background: rgba(234, 179, 8, 0.12);
+        border-color: rgba(234, 179, 8, 0.35);
+        color: #d4a000;
+    }
+
+    .sync-status-offline {
+        background: rgba(120, 120, 120, 0.12);
+        border-color: rgba(120, 120, 120, 0.25);
+        color: #888;
+    }
+
+    .sync-status-syncing {
+        background: rgba(59, 130, 246, 0.12);
+        border-color: rgba(59, 130, 246, 0.3);
+        color: #60a5fa;
+    }
+
+    .sync-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+
+    .sync-dot-green  { background: #28b450; }
+    .sync-dot-yellow { background: #f59e0b; }
+    .sync-dot-grey   { background: #888; }
+
+    .sync-spinner {
+        width: 10px;
+        height: 10px;
+        border: 2px solid rgba(96, 165, 250, 0.3);
+        border-top-color: #60a5fa;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+
+    .sync-time { opacity: 0.7; font-weight: 400; }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>

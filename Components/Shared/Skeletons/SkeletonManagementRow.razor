@@ -1,0 +1,24 @@
+@* Skeleton placeholder for management list rows (Posts, Events, Approvals) *@
+@for (int i = 0; i < Count; i++)
+{
+    <div style="display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.06); align-items: flex-start;">
+        <div class="skeleton" style="width: 64px; height: 64px; flex-shrink: 0; border-radius: 6px;"></div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+            <div class="skeleton" style="height: 14px; width: 55%;"></div>
+            <div class="skeleton" style="height: 11px; width: 40%;"></div>
+            <div class="skeleton" style="height: 11px; width: 80%;"></div>
+            <div style="display: flex; gap: 8px; margin-top: 2px;">
+                <div class="skeleton" style="height: 20px; width: 72px; border-radius: 10px;"></div>
+                <div class="skeleton" style="height: 20px; width: 60px; border-radius: 10px;"></div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-shrink: 0; align-self: center;">
+            <div class="skeleton" style="width: 30px; height: 30px; border-radius: 6px;"></div>
+            <div class="skeleton" style="width: 30px; height: 30px; border-radius: 6px;"></div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Count { get; set; } = 5;
+}

@@ -1,0 +1,123 @@
+﻿@inject USJR_COMES_WEBSITE.Services.IHomeService HomeService
+@using USJR_COMES_WEBSITE.Models
+@using USJR_COMES_WEBSITE.APIs
+
+<div class="hero-slider">
+    @if (!_slidesLoaded)
+    {
+        <SkeletonHeroSlider />
+    }
+    else if (slides == null || !slides.Any())
+    {
+        <div style="text-align: center; padding: 2rem;">
+            <span style="font-size: 0.8em; color: gray;">no data can be extracted</span>
+        </div>
+    }
+    else
+    {
+        <div class="hero-slide" style="position: relative; overflow: hidden; @GetSlideBackground()">
+
+            @if (!string.IsNullOrEmpty(slides[currentIndex].ImageUrl))
+            {
+                if (IsCurrentSlideVideo())
+                {
+                    <video src="@GetFullUrl(slides[currentIndex].ImageUrl)" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; opacity: 0.6;" autoplay loop muted></video>
+                }
+                else if (IsCurrentSlidePdf())
+                {
+                    <iframe src="@GetFullUrl(slides[currentIndex].ImageUrl)" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; opacity: 0.6; border: none;"></iframe>
+                }
+            }
+
+            <div class="hero-content" style="position: relative; z-index: 1;">
+                <h1 class="hero-title">@slides[currentIndex].Title</h1>
+                <p class="hero-subtitle">@slides[currentIndex].Subtitle</p>
+                <button class="hero-btn" @onclick="OpenModal">Read MORE</button>
+            </div>
+
+            <div class="hero-controls">
+                <div class="hero-dots">
+                    @for (int i = 0; i < slides.Count; i++)
+                    {
+                        int idx = i;
+                        <span class="dot @(idx == currentIndex ? "active" : "")" @onclick="() => GoTo(idx)"></span>
+                    }
+                </div>
+                <button class="hero-next" @onclick="Next">NEXT &#9656;</button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showModal && slides != null && slides.Count > currentIndex)
+{
+    var s = slides[currentIndex];
+    <div class="slide-modal-overlay" @onclick="CloseModal">
+        <div class="slide-modal-card" @onclick:stopPropagation="true">
+            @if (!string.IsNullOrEmpty(s.ImageUrl))
+            {
+                <div class="slide-modal-image" style="background-image:url('@GetFullUrl(s.ImageUrl)');background-size:cover;background-position:center;"></div>
+            }
+            <div class="slide-modal-body">
+                <h2 class="slide-modal-title">@s.Title</h2>
+                <p class="slide-modal-desc">@s.Subtitle</p>
+            </div>
+            <button class="slide-modal-close" @onclick="CloseModal">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private int currentIndex = 0;
+    private bool showModal = false;
+    private List<SlideItem>? slides;
+    private bool _slidesLoaded = false;
+
+    private bool IsVideo(string url, string? mime = null) =>
+        (!string.IsNullOrEmpty(mime) && mime.StartsWith("video/")) ||
+        url.Contains(".mp4", StringComparison.OrdinalIgnoreCase) ||
+        url.StartsWith("data:video", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsPdf(string url, string? mime = null) =>
+        (!string.IsNullOrEmpty(mime) && mime == "application/pdf") ||
+        url.Contains(".pdf", StringComparison.OrdinalIgnoreCase) ||
+        url.StartsWith("data:application/pdf", StringComparison.OrdinalIgnoreCase);
+
+    private string GetFullUrl(string url) =>
+        !string.IsNullOrEmpty(url) && url.StartsWith("data:") ? url : ApiEndpoints.ServerBaseUrl + url;
+
+    private bool IsCurrentSlideVideo() =>
+        slides != null && slides.Count > currentIndex &&
+        IsVideo(slides[currentIndex].ImageUrl, slides[currentIndex].ImageMimeType);
+
+    private bool IsCurrentSlidePdf() =>
+        slides != null && slides.Count > currentIndex &&
+        IsPdf(slides[currentIndex].ImageUrl, slides[currentIndex].ImageMimeType);
+
+    private string GetSlideBackground()
+    {
+        if (slides == null || slides.Count <= currentIndex) return "";
+        var url = slides[currentIndex].ImageUrl;
+        if (string.IsNullOrEmpty(url) || IsCurrentSlideVideo() || IsCurrentSlidePdf()) return "";
+        return $"background-image: linear-gradient(to bottom, rgba(55, 71, 79, 0) 30%, #37474f 100%), url('{GetFullUrl(url)}'); background-size: cover; background-position: center;";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        slides = await HomeService.GetSlideItemsAsync();
+        _slidesLoaded = true;
+    }
+
+    private void Next()
+    {
+        if (slides != null && slides.Any())
+            currentIndex = (currentIndex + 1) % slides.Count;
+    }
+
+    private void GoTo(int index) => currentIndex = index;
+
+    private void OpenModal() => showModal = true;
+    private void CloseModal() => showModal = false;
+}

@@ -1,0 +1,63 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.APIs
+@inject ISiteSettingsService SiteSettings
+@implements IDisposable
+
+<footer class="footer-bar">
+    <div class="footer-left">
+        <div class="footer-brand">
+            @if (SiteSettings.Current.HasHeaderLogo)
+            {
+                <img src="@ApiEndpoints.SiteSettings.HeaderLogo" alt="USJ-R ComEs Logo" class="footer-logo"
+                     style="height: @(SiteSettings.Current.FooterLogoHeight)px; width: auto;" />
+            }
+            else
+            {
+                <img src="/images/comes_logo.svg" alt="USJ-R ComEs Logo" class="footer-logo"
+                     style="height: @(SiteSettings.Current.FooterLogoHeight)px; width: auto;" />
+            }
+            <div class="footer-title-block">
+                <span class="footer-org-name">@SiteSettings.Current.HeaderOrgName</span>
+                <span class="footer-org-sub">@SiteSettings.Current.FooterOrgSub</span>
+                <div class="footer-socials">
+                    <a href="@SiteSettings.Current.FooterFacebookUrl" target="_blank" class="footer-social-link" aria-label="Facebook">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="12" fill="#1a1a1a" />
+                            <path d="M15.12 8.01H13.5c-.19 0-.5.25-.5.62V10h2.12l-.32 2H13v6h-2.5v-6H9V10h1.5V8.63C10.5 7.12 11.57 6 13.5 6h1.62v2.01z" fill="white" />
+                        </svg>
+                    </a>
+                    <a href="@SiteSettings.Current.FooterWebsiteUrl" target="_blank" class="footer-social-link" aria-label="Website">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="11" stroke="#1a1a1a" stroke-width="2" />
+                            <ellipse cx="12" cy="12" rx="4.5" ry="11" stroke="#1a1a1a" stroke-width="1.5" />
+                            <line x1="1" y1="12" x2="23" y2="12" stroke="#1a1a1a" stroke-width="1.5" />
+                            <line x1="2.5" y1="7" x2="21.5" y2="7" stroke="#1a1a1a" stroke-width="1.2" />
+                            <line x1="2.5" y1="17" x2="21.5" y2="17" stroke="#1a1a1a" stroke-width="1.2" />
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-divider"></div>
+
+    <nav class="footer-nav">
+        <a href="/" class="footer-nav-link">Home</a>
+        <a href="/newsfeed" class="footer-nav-link">News Feed</a>
+        <a href="/services" class="footer-nav-link">Services</a>
+        <a href="/officers" class="footer-nav-link">Officers</a>
+        <a href="/aboutus" class="footer-nav-link">About Us</a>
+    </nav>
+</footer>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        SiteSettings.OnChange += StateHasChanged;
+        if (!SiteSettings.IsLoaded)
+            await SiteSettings.LoadAsync();
+    }
+
+    public void Dispose() => SiteSettings.OnChange -= StateHasChanged;
+}

@@ -1,0 +1,38 @@
+﻿@page "/newsfeed"
+<div class="newsfeed-container">
+    <nav class="site-nav">
+        <NavBar2 />
+    </nav>
+
+    <!-- Mobile TikTok-style tab bar -->
+    <div class="mobile-tab-bar">
+        <button class="mobile-tab @(activeTab == "feed" ? "active" : "")" @onclick='() => activeTab = "feed"'>
+            News Feed
+        </button>
+        <button class="mobile-tab @(activeTab == "events" ? "active" : "")" @onclick='() => activeTab = "events"'>
+            Upcoming Events
+        </button>
+    </div>
+
+    <div class="spacer-top"></div>
+
+    <main class="main-content-row">
+        <section class="feed-content @(activeTab != "feed" ? "tab-hidden-mobile" : "")">
+            <NewsFeedContent />
+        </section>
+
+        <aside class="side-content @(activeTab != "events" ? "tab-hidden-mobile" : "")">
+            <UpcomingEvents />
+        </aside>
+    </main>
+
+    <div class="spacer-bottom"></div>
+
+    <footer class="site-footer">
+        <Footer />
+    </footer>
+</div>
+
+@code {
+    private string activeTab = "feed";
+}

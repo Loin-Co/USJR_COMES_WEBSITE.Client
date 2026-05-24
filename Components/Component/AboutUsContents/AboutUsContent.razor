@@ -1,0 +1,88 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.APIs
+@inject IAboutUsService AboutUsService
+<div class="aboutus-content">
+    @if (_loading)
+    {
+        <SkeletonAboutUs />
+    }
+    else if (Content == null)
+    {
+        <div class="au-no-content">
+            <p>No content available yet.</p>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(Content.BannerImageUrl))
+        {
+            <div class="au-banner" style="background-image: url('@ApiEndpoints.Files.ToFullUrl(Content.BannerImageUrl)'); background-size: cover; background-position: center;"></div>
+        }
+
+        <div class="au-header">
+            <h1 class="au-title">@(string.IsNullOrEmpty(Content.Title) ? "ABOUT US" : Content.Title)</h1>
+            <p class="au-intro @(string.IsNullOrEmpty(Content.AboutUsText) ? "au-placeholder" : "")">
+                @(string.IsNullOrEmpty(Content.AboutUsText) ? "No description yet." : Content.AboutUsText)
+            </p>
+        </div>
+
+        <div class="au-vm-grid">
+            <div class="au-vm-col">
+                <h2 class="au-vm-heading">Vision</h2>
+                <p class="au-vm-text @(string.IsNullOrEmpty(Content.VisionText) ? "au-placeholder" : "")">
+                    @(string.IsNullOrEmpty(Content.VisionText) ? "No content yet." : Content.VisionText)
+                </p>
+            </div>
+            <div class="au-vm-col">
+                <h2 class="au-vm-heading">Mission</h2>
+                <p class="au-vm-text @(string.IsNullOrEmpty(Content.MissionText) ? "au-placeholder" : "")">
+                    @(string.IsNullOrEmpty(Content.MissionText) ? "No content yet." : Content.MissionText)
+                </p>
+            </div>
+        </div>
+
+        <div class="au-divider"></div>
+
+        <div class="au-president-section">
+            <div class="au-quote-col">
+                <p class="au-quote @(string.IsNullOrEmpty(Content.PresidentPersonalMessage) ? "au-placeholder" : "")">
+                    @(string.IsNullOrEmpty(Content.PresidentPersonalMessage) ? "No message yet." : $"\"{Content.PresidentPersonalMessage}\"")
+                </p>
+                <p class="au-president-name">@(Content.President?.Name ?? "No president selected")</p>
+                <p class="au-president-role">President, USJ-R COMPUTER ENGINEERING SOCIETY (@(string.IsNullOrEmpty(Content.AcademicYear) ? "â€“" : Content.AcademicYear))</p>
+            </div>
+            <div class="au-img-col">
+                @{
+                    var presidentImg = GetPresidentImageUrl();
+                }
+                @* <img src="@presidentImg" alt="President" class="au-president-img" />
+                <span class="au-comes-text">ComES</span> *@
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private AboutUsContentViewModel? Content;
+    private bool _loading = true;
+
+    private string GetPresidentImageUrl()
+    {
+        if (Content?.President == null) return "images/president.svg";
+        if (string.IsNullOrEmpty(Content.President.ImageUrl)) return "images/president.svg";
+        return ApiEndpoints.Files.ToFullUrl(Content.President.ImageUrl);
+    }
+
+    protected override void OnInitialized()
+    {
+        _ = LoadInBackground();
+    }
+
+    private async Task LoadInBackground()
+    {
+        Content = await AboutUsService.GetAboutUsContentAsync();
+        _loading = false;
+        StateHasChanged();
+    }
+}

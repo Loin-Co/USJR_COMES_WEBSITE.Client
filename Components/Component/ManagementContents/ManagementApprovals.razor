@@ -1,0 +1,1451 @@
+@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.APIs
+@inject INewsFeedService NewsFeedService
+@inject IServicesOfferedService ServicesOfferedService
+@inject IBudgetService BudgetService
+@inject UserStateService UserState
+@inject IHttpClientFactory HttpClientFactory
+@inject ISiteSettingsService SettingsService
+@inject IJSRuntime JS
+@using System.Text.Json
+
+<div class="approvals-wrap">
+    <div class="approvals-header">
+        <h2 class="approvals-title">Approvals</h2>
+        @if (!IsLoading)
+        {
+            var total = PendingPosts.Count + PendingEvents.Count + PendingServices.Count + _pendingTransactions.Count + _pendingAccounts.Count + _pendingSiteChanges.Count + _pendingAboutUsChanges.Count;
+            if (total > 0)
+            {
+                <span class="total-badge">@total pending</span>
+            }
+        }
+    </div>
+
+    @if (IsLoading)
+    {
+        <SkeletonManagementRow Count="5" />
+    }
+    else
+    {
+        <!-- Pending Programs -->
+        <div class="approval-section">
+            <div class="section-header">
+                <span class="section-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                </span>
+                <span class="section-name">Budget Programs</span>
+                @if (_pendingAccounts.Any())
+                {
+                    <span class="section-count">@_pendingAccounts.Count</span>
+                }
+            </div>
+            @if (_loadingBudgetAccounts)
+            {
+                <SkeletonManagementRow Count="2" />
+            }
+            else if (!_pendingAccounts.Any())
+            {
+                <div class="empty-row">No budget programs pending approval.</div>
+            }
+            else
+            {
+                @foreach (var acct in _pendingAccounts)
+                {
+                    <div class="approval-card">
+                        <div class="approval-type-pill post-pill">Program</div>
+                        <div class="approval-info">
+                            <div class="approval-name">@acct.Title</div>
+                            <div class="approval-meta">
+                                @if (acct.TargetBudget > 0) { <span>Target ₱@acct.TargetBudget.ToString("N2") &bull; </span> }
+                                by @(acct.CreatedBy ?? "Unknown")
+                            </div>
+                            @if (!string.IsNullOrEmpty(acct.Description))
+                            {
+                                <div class="approval-preview">@(acct.Description.Length > 120 ? acct.Description[..120] + "…" : acct.Description)</div>
+                            }
+                        </div>
+                        <div class="approval-actions">
+                            <button class="btn-preview" @onclick="() => OpenPreviewAccount(acct)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
+                            </button>
+                            <button class="btn-approve" @onclick="() => ApproveBudgetAccount(acct)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Approve
+                            </button>
+                            <button class="btn-reject" @onclick="() => OpenRejectBudgetAccount(acct)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Budget Approvals -->
+        <div class="approval-section">
+            <div class="section-header">
+                <span class="section-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </span>
+                <span class="section-name">Budget Transactions</span>
+                @if (_pendingTransactions.Any())
+                {
+                    <span class="section-count">@_pendingTransactions.Count</span>
+                }
+            </div>
+            @if (_loadingBudget)
+            {
+                <SkeletonManagementRow Count="3" />
+            }
+            else if (!_pendingTransactions.Any())
+            {
+                <div class="empty-row">No budget transactions pending approval.</div>
+            }
+            else
+            {
+                @foreach (var tx in _pendingTransactions)
+                {
+                    <div class="approval-card">
+                        <div class="approval-type-pill @(tx.TransactionType == "Income" ? "post-pill" : "service-pill")">
+                            @(tx.TransactionType == "Income" ? "Cash In" : "Cash Out")
+                        </div>
+                        <div class="approval-info">
+                            <div class="approval-name">@tx.Title</div>
+                            <div class="approval-meta">
+                                ₱@tx.Amount.ToString("N2")
+                                @if (!string.IsNullOrEmpty(tx.RequestedByName))
+                                {
+                                    <span> &bull; by @tx.RequestedByName</span>
+                                }
+                                @if (!string.IsNullOrEmpty(tx.TransactionDate))
+                                {
+                                    <span> &bull; @tx.TransactionDate</span>
+                                }
+                            </div>
+                            @if (!string.IsNullOrEmpty(tx.Description))
+                            {
+                                <div class="approval-preview">@(tx.Description.Length > 120 ? tx.Description[..120] + "…" : tx.Description)</div>
+                            }
+                        </div>
+                        <div class="approval-actions">
+                            <button class="btn-preview" @onclick="() => OpenPreviewTransaction(tx)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
+                            </button>
+                            <button class="btn-approve" @onclick="() => ApproveBudget(tx)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Approve
+                            </button>
+                            <button class="btn-reject" @onclick="() => OpenRejectBudget(tx)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Pending Website Changes -->
+        <div class="approval-section">
+            <div class="section-header">
+                <span class="section-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                </span>
+                <span class="section-name">Website Changes</span>
+                @if (_pendingSiteChanges.Any())
+                {
+                    <span class="section-count">@_pendingSiteChanges.Count</span>
+                }
+            </div>
+            @if (_loadingSiteChanges)
+            {
+                <SkeletonManagementRow Count="2" />
+            }
+            else if (!_pendingSiteChanges.Any())
+            {
+                <div class="empty-row">No website changes pending approval.</div>
+            }
+            else
+            {
+                @foreach (var sc in _pendingSiteChanges)
+                {
+                    <div class="approval-card">
+                        <div class="approval-type-pill event-pill">Site</div>
+                        <div class="approval-info">
+                            <div class="approval-name">@sc.ChangeType</div>
+                            <div class="approval-meta">by @(sc.ProposedByName ?? sc.ProposedBySchoolId) &bull; @sc.CreatedAt.ToString("MMM d, yyyy")</div>
+                        </div>
+                        <div class="approval-actions">
+                            <button class="btn-preview" @onclick="() => OpenPreviewSiteChange(sc)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
+                            </button>
+                            <button class="btn-approve" @onclick="() => ApproveSiteChange(sc)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Approve
+                            </button>
+                            <button class="btn-reject" @onclick="() => OpenRejectSiteChange(sc)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+        <!-- About Us Changes -->
+        <div class="approval-section">
+            <div class="section-header">
+                <span class="section-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </span>
+                <span class="section-name">About Us Changes</span>
+                @if (_pendingAboutUsChanges.Any())
+                {
+                    <span class="section-count">@_pendingAboutUsChanges.Count</span>
+                }
+            </div>
+            @if (_loadingAboutUsChanges)
+            {
+                <SkeletonManagementRow Count="2" />
+            }
+            else if (!_pendingAboutUsChanges.Any())
+            {
+                <div class="empty-row">No About Us changes pending approval.</div>
+            }
+            else
+            {
+                @foreach (var au in _pendingAboutUsChanges)
+                {
+                    <div class="approval-card">
+                        <div class="approval-type-pill event-pill">About Us</div>
+                        <div class="approval-info">
+                            <div class="approval-name">@au.Title</div>
+                            <div class="approval-meta">
+                                by @(au.ProposerName ?? au.ProposedBySchoolId)
+                                &bull; A.Y. @au.AcademicYear
+                                &bull; @au.CreatedAt.ToString("MMM d, yyyy")
+                            </div>
+                            @if (!string.IsNullOrEmpty(au.AboutUsText))
+                            {
+                                <div class="approval-preview">@(au.AboutUsText.Length > 120 ? au.AboutUsText[..120] + "…" : au.AboutUsText)</div>
+                            }
+                        </div>
+                        <div class="approval-actions">
+                            <button class="btn-preview" @onclick="() => OpenPreviewAboutUsChange(au)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
+                            </button>
+                            <button class="btn-approve" @onclick="() => ApproveAboutUsChange(au)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Approve
+                            </button>
+                            <button class="btn-reject" @onclick="() => OpenRejectAboutUsChange(au)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Posts -->
+        <div class="approval-section">
+            <div class="section-header">
+                <span class="section-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                </span>
+                <span class="section-name">Posts</span>
+                @if (PendingPosts.Any())
+                {
+                    <span class="section-count">@PendingPosts.Count</span>
+                }
+            </div>
+
+            @if (!PendingPosts.Any())
+            {
+                <div class="empty-row">No posts pending approval.</div>
+            }
+            else
+            {
+                @foreach (var post in PendingPosts)
+                {
+                    <div class="approval-card">
+                        <div class="approval-type-pill post-pill">Post</div>
+                        <div class="approval-info">
+                            <div class="approval-name">@post.Title</div>
+                            <div class="approval-meta">by @post.Name &bull; @post.DateTime</div>
+                            @if (!string.IsNullOrEmpty(post.Description))
+                            {
+                                <div class="approval-preview">@(post.Description.Length > 140 ? post.Description[..140] + "…" : post.Description)</div>
+                            }
+                        </div>
+                        <div class="approval-actions">
+                            <button class="btn-preview" @onclick="() => OpenPreviewPost(post)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
+                            </button>
+                            <button class="btn-approve" @onclick="() => ApprovePost(post)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Approve
+                            </button>
+                            <button class="btn-reject" @onclick="() => OpenRejectPost(post)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Events -->
+        <div class="approval-section">
+            <div class="section-header">
+                <span class="section-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                </span>
+                <span class="section-name">Events</span>
+                @if (PendingEvents.Any())
+                {
+                    <span class="section-count">@PendingEvents.Count</span>
+                }
+            </div>
+
+            @if (!PendingEvents.Any())
+            {
+                <div class="empty-row">No events pending approval.</div>
+            }
+            else
+            {
+                @foreach (var ev in PendingEvents)
+                {
+                    <div class="approval-card">
+                        <div class="approval-type-pill event-pill">Event</div>
+                        <div class="approval-info">
+                            <div class="approval-name">@ev.Title</div>
+                            <div class="approval-meta">@ev.Date &bull; @ev.Venue &bull; by @ev.Organizer</div>
+                            @if (!string.IsNullOrEmpty(ev.Description))
+                            {
+                                <div class="approval-preview">@(ev.Description.Length > 140 ? ev.Description[..140] + "…" : ev.Description)</div>
+                            }
+                        </div>
+                        <div class="approval-actions">
+                            <button class="btn-preview" @onclick="() => OpenPreviewEvent(ev)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
+                            </button>
+                            <button class="btn-approve" @onclick="() => ApproveEvent(ev)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Approve
+                            </button>
+                            <button class="btn-reject" @onclick="() => OpenRejectEvent(ev)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- Services -->
+        <div class="approval-section">
+            <div class="section-header">
+                <span class="section-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+                </span>
+                <span class="section-name">Services</span>
+                @if (PendingServices.Any())
+                {
+                    <span class="section-count">@PendingServices.Count</span>
+                }
+            </div>
+
+            @if (!PendingServices.Any())
+            {
+                <div class="empty-row">No services pending approval.</div>
+            }
+            else
+            {
+                @foreach (var svc in PendingServices)
+                {
+                    <div class="approval-card">
+                        <div class="approval-type-pill service-pill">Service</div>
+                        <div class="approval-info">
+                            <div class="approval-name">@svc.Name</div>
+                            <div class="approval-meta">by @(svc.CreatedByName ?? svc.CreatedBy ?? "Unknown") &bull; @svc.CreatedByRole</div>
+                            @if (!string.IsNullOrEmpty(svc.Description))
+                            {
+                                <div class="approval-preview">@(svc.Description.Length > 140 ? svc.Description[..140] + "…" : svc.Description)</div>
+                            }
+                        </div>
+                        <div class="approval-actions">
+                            <button class="btn-preview" @onclick="() => OpenPreviewService(svc)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                View
+                            </button>
+                            <button class="btn-approve" @onclick="() => ApproveService(svc)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Approve
+                            </button>
+                            <button class="btn-reject" @onclick="() => OpenRejectService(svc)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+@if (IsRejectModalOpen)
+{
+    <div class="modal-overlay" @onclick="CloseRejectModal">
+        <div class="reject-modal" @onclick:stopPropagation="true">
+            <h3 class="reject-modal-title">Reject Item</h3>
+            <p class="reject-modal-sub">Provide a reason for rejection (optional):</p>
+            <textarea class="reject-textarea" rows="4" @bind="RejectReason" placeholder="e.g. Content does not meet guidelines…"></textarea>
+            <div class="reject-modal-actions">
+                <button class="btn-cancel" @onclick="CloseRejectModal">Cancel</button>
+                <button class="btn-confirm-reject" @onclick="ConfirmReject">Confirm Reject</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_isPreviewOpen)
+{
+    <div class="modal-overlay" @onclick="ClosePreview">
+        <div class="preview-modal @(_previewType is "SiteChange" or "AboutUsChange" ? "preview-modal-wide" : "")" @onclick:stopPropagation="true">
+            <div class="preview-modal-header">
+                <div class="preview-header-left">
+                    @{
+                        var pillClass = _previewType switch
+                        {
+                            "Post"          => "post-pill",
+                            "Event"         => "event-pill",
+                            "Service"       => "service-pill",
+                            "SiteChange"    => "event-pill",
+                            "AboutUsChange" => "event-pill",
+                            _               => "post-pill"
+                        };
+                        var pillLabel = _previewType switch
+                        {
+                            "Account"       => "Budget Program",
+                            "Transaction"   => "Budget Transaction",
+                            "SiteChange"    => "Website Change",
+                            "AboutUsChange" => "About Us Change",
+                            _               => _previewType
+                        };
+                    }
+                    <span class="approval-type-pill @pillClass" style="font-size:0.72rem;">@pillLabel</span>
+                    <span class="preview-modal-title">Details</span>
+                </div>
+                <button class="preview-close-btn" @onclick="ClosePreview">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+
+            @* ── POST ── *@
+            @if (_previewType == "Post" && _previewPost != null)
+            {
+                <div class="preview-item-title">@_previewPost.Title</div>
+                <div class="preview-item-meta">by @_previewPost.Name &bull; @_previewPost.DateTime &bull; <span class="preview-role">@_previewPost.CreatedByRole</span></div>
+
+                @* Images / attachments *@
+                @if (_previewImagesLoading)
+                {
+                    <div class="preview-section-label">Attachments</div>
+                    <div class="preview-loading-msg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                        Loading attachments…
+                    </div>
+                }
+                else if (_previewImages.Count > 0)
+                {
+                    <div class="preview-section-label">Attachments</div>
+                    <div class="preview-image-gallery">
+                        @foreach (var src in _previewImages)
+                        {
+                            @if (src.StartsWith("data:video", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <div class="preview-attachment-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                                    <span>Video</span>
+                                </div>
+                            }
+                            else if (src.StartsWith("data:application/pdf", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <div class="preview-attachment-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                    <span>PDF</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <img src="@src" class="preview-img-thumb" alt="attachment" />
+                            }
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_previewPost.Description))
+                {
+                    <div class="preview-section-label">Description</div>
+                    <div class="preview-body-text">@_previewPost.Description</div>
+                }
+                <div class="preview-section-label">Post Placement</div>
+                <div class="preview-flags">
+                    @if (_previewPost.PostToNewsFeed)  { <span class="preview-flag">News Feed</span> }
+                    @if (_previewPost.PostToHeadline)  { <span class="preview-flag">Headline</span> }
+                    @if (_previewPost.PostToSlideItem) { <span class="preview-flag">Slide Item</span> }
+                    @if (_previewPost.PostToEvents)    { <span class="preview-flag">Events</span> }
+                    @if (!_previewPost.PostToNewsFeed && !_previewPost.PostToHeadline && !_previewPost.PostToSlideItem && !_previewPost.PostToEvents)
+                    {
+                        <span class="preview-flag-none">None selected</span>
+                    }
+                </div>
+            }
+
+            @* ── EVENT ── *@
+            @if (_previewType == "Event" && _previewEvent != null)
+            {
+                <div class="preview-item-title">@_previewEvent.Title</div>
+                <div class="preview-item-meta">by @_previewEvent.Organizer &bull; <span class="preview-role">@_previewEvent.CreatedByRole</span></div>
+
+                @* Event poster *@
+                @if (_previewImagesLoading)
+                {
+                    <div class="preview-section-label">Poster</div>
+                    <div class="preview-loading-msg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                        Loading poster…
+                    </div>
+                }
+                else if (_previewImages.Count > 0)
+                {
+                    <div class="preview-section-label">Poster</div>
+                    <div class="preview-image-gallery">
+                        @foreach (var src in _previewImages)
+                        {
+                            <img src="@src" class="preview-img-thumb" alt="event poster" />
+                        }
+                    </div>
+                }
+
+                <div class="preview-fields">
+                    @if (!string.IsNullOrEmpty(_previewEvent.Date))
+                    {
+                        <div class="preview-field"><span class="pf-label">Date</span><span class="pf-value">@_previewEvent.Date</span></div>
+                    }
+                    @if (!string.IsNullOrEmpty(_previewEvent.Time))
+                    {
+                        <div class="preview-field"><span class="pf-label">Time</span><span class="pf-value">@_previewEvent.Time</span></div>
+                    }
+                    @if (!string.IsNullOrEmpty(_previewEvent.Venue))
+                    {
+                        <div class="preview-field"><span class="pf-label">Venue</span><span class="pf-value">@_previewEvent.Venue</span></div>
+                    }
+                    @if (!string.IsNullOrEmpty(_previewEvent.GoogleFormLink))
+                    {
+                        <div class="preview-field"><span class="pf-label">Google Form</span><span class="pf-value"><a href="@_previewEvent.GoogleFormLink" target="_blank" class="preview-link">Open Form ↗</a></span></div>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(_previewEvent.Description))
+                {
+                    <div class="preview-section-label">Description</div>
+                    <div class="preview-body-text">@_previewEvent.Description</div>
+                }
+                <div class="preview-section-label">Post Placement</div>
+                <div class="preview-flags">
+                    @if (_previewEvent.PostToNewsFeed)  { <span class="preview-flag">News Feed</span> }
+                    @if (_previewEvent.PostToHeadline)  { <span class="preview-flag">Headline</span> }
+                    @if (_previewEvent.PostToSlideItem) { <span class="preview-flag">Slide Item</span> }
+                    @if (!_previewEvent.PostToNewsFeed && !_previewEvent.PostToHeadline && !_previewEvent.PostToSlideItem)
+                    {
+                        <span class="preview-flag-none">None selected</span>
+                    }
+                </div>
+            }
+
+            @* ── SERVICE ── *@
+            @if (_previewType == "Service" && _previewService != null)
+            {
+                <div class="preview-item-title">@_previewService.Name</div>
+                <div class="preview-item-meta">by @(_previewService.CreatedByName ?? _previewService.CreatedBy ?? "Unknown") &bull; <span class="preview-role">@_previewService.CreatedByRole</span></div>
+
+                @* Service image *@
+                @if (_previewImagesLoading)
+                {
+                    <div class="preview-section-label">Image</div>
+                    <div class="preview-loading-msg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                        Loading image…
+                    </div>
+                }
+                else if (_previewImages.Count > 0)
+                {
+                    <div class="preview-section-label">Image</div>
+                    <div class="preview-image-gallery">
+                        @foreach (var src in _previewImages)
+                        {
+                            <img src="@src" class="preview-img-thumb preview-img-service" alt="service image" />
+                        }
+                    </div>
+                }
+
+                <div class="preview-fields">
+                    <div class="preview-field"><span class="pf-label">Action Type</span><span class="pf-value">@_previewService.ActionType</span></div>
+                    @if (!string.IsNullOrEmpty(_previewService.BudgetAccountTitle))
+                    {
+                        <div class="preview-field"><span class="pf-label">Budget Account</span><span class="pf-value">@_previewService.BudgetAccountTitle</span></div>
+                    }
+                    <div class="preview-field"><span class="pf-label">For Membership</span><span class="pf-value">@(_previewService.IsForMembership ? "Yes" : "No")</span></div>
+                </div>
+                @if (!string.IsNullOrEmpty(_previewService.Description))
+                {
+                    <div class="preview-section-label">Description</div>
+                    <div class="preview-body-text">@_previewService.Description</div>
+                }
+            }
+
+            @* ── BUDGET PROGRAM ── *@
+            @if (_previewType == "Account" && _previewAccount != null)
+            {
+                <div class="preview-item-title">@_previewAccount.Title</div>
+                <div class="preview-item-meta">by @(_previewAccount.CreatedBy ?? "Unknown")</div>
+                @if (_previewAccount.TargetBudget > 0)
+                {
+                    <div class="preview-fields">
+                        <div class="preview-field"><span class="pf-label">Target Budget</span><span class="pf-value">₱@_previewAccount.TargetBudget.ToString("N2")</span></div>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_previewAccount.Description))
+                {
+                    <div class="preview-section-label">Description</div>
+                    <div class="preview-body-text">@_previewAccount.Description</div>
+                }
+            }
+
+            @* ── BUDGET TRANSACTION ── *@
+            @if (_previewType == "Transaction" && _previewTransaction != null)
+            {
+                <div class="preview-item-title">@_previewTransaction.Title</div>
+                <div class="preview-item-meta">by @(_previewTransaction.RequestedByName ?? "Unknown")</div>
+                <div class="preview-fields">
+                    <div class="preview-field"><span class="pf-label">Type</span><span class="pf-value">@(_previewTransaction.TransactionType == "Income" ? "Cash In" : "Cash Out")</span></div>
+                    <div class="preview-field"><span class="pf-label">Amount</span><span class="pf-value">₱@_previewTransaction.Amount.ToString("N2")</span></div>
+                    @if (!string.IsNullOrEmpty(_previewTransaction.TransactionDate))
+                    {
+                        <div class="preview-field"><span class="pf-label">Date</span><span class="pf-value">@_previewTransaction.TransactionDate</span></div>
+                    }
+                    @if (!string.IsNullOrEmpty(_previewTransaction.Category))
+                    {
+                        <div class="preview-field"><span class="pf-label">Category</span><span class="pf-value">@_previewTransaction.Category</span></div>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(_previewTransaction.Description))
+                {
+                    <div class="preview-section-label">Description</div>
+                    <div class="preview-body-text">@_previewTransaction.Description</div>
+                }
+
+                @* Receipt *@
+                <div class="preview-section-label">Receipt</div>
+                @if (_previewReceiptLoading)
+                {
+                    <div class="preview-loading-msg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                        Loading receipt…
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(_previewReceiptSrc))
+                {
+                    @if (_previewReceiptMime?.StartsWith("image", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        <img src="@_previewReceiptSrc" class="preview-receipt-img" alt="receipt" />
+                    }
+                    else
+                    {
+                        <div class="preview-attachment-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            <span>PDF Receipt attached</span>
+                        </div>
+                    }
+                }
+                else if (_previewTransaction.HasReceipt)
+                {
+                    <div class="preview-loading-msg">Receipt could not be loaded.</div>
+                }
+                else
+                {
+                    <div class="preview-loading-msg" style="font-style:normal;color:rgba(255,255,255,0.3);">No receipt attached.</div>
+                }
+            }
+
+            @* ── WEBSITE CHANGE ── *@
+            @if (_previewType == "SiteChange" && _previewSiteChange != null)
+            {
+                <div class="preview-item-title">@_previewSiteChange.ChangeType</div>
+                <div class="preview-item-meta">by @(_previewSiteChange.ProposedByName ?? _previewSiteChange.ProposedBySchoolId) &bull; @_previewSiteChange.CreatedAt.ToString("MMM d, yyyy")</div>
+
+                @if (_parsedSiteSettings != null)
+                {
+                    var sc        = _parsedSiteSettings;
+                    var scBgCss   = BuildSitePreviewBgCss(sc);
+                    var scBgSize  = !string.IsNullOrEmpty(sc.BackgroundCustomSize) ? sc.BackgroundCustomSize : (sc.BackgroundSize ?? "cover");
+                    var scBgPos   = sc.BackgroundPosition ?? "center";
+                    var scBgOp    = sc.BackgroundOpacity.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+                    var scNavBg   = !string.IsNullOrEmpty(sc.NavbarColor) ? sc.NavbarColor : "#07130a";
+                    var scLogo    = (!string.IsNullOrEmpty(sc.HeaderLogoBase64) && !sc.ClearHeaderLogo && !string.IsNullOrEmpty(sc.HeaderLogoMimeType))
+                                       ? $"data:{sc.HeaderLogoMimeType};base64,{sc.HeaderLogoBase64}" : null;
+                    var scLogoH   = Math.Clamp((int)(sc.HeaderLogoHeight * 0.22), 8, 55);
+                    var scAccent  = !string.IsNullOrEmpty(sc.ThemeAccent)       ? sc.ThemeAccent       : "#28b450";
+                    var scBright  = !string.IsNullOrEmpty(sc.ThemeAccentBright) ? sc.ThemeAccentBright : "#00ff88";
+                    var scTextCol = !string.IsNullOrEmpty(sc.ThemeTextColor)    ? sc.ThemeTextColor    : "#e0e0e0";
+                    var scPattern = sc.BackgroundPattern ?? "circuit";
+                    <div class="preview-section-label">Visual Preview</div>
+                    <div class="sc-preview-window">
+                        <div class="sc-pw-bg" style="background:@scBgCss; opacity:@scBgOp; background-size:@scBgSize; background-position:@scBgPos; background-repeat:no-repeat;"></div>
+                        @if (scPattern != "none" && !string.IsNullOrEmpty(scPattern))
+                        {
+                            <div class="sc-pw-pat sc-pat-@scPattern"></div>
+                        }
+                        <div class="sc-pw-nav" style="background:@scNavBg">
+                            <svg class="sc-pw-nav-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" style="color:@scAccent">
+                                <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                                <text x="20" y="25" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">CE</text>
+                            </svg>
+                            <span class="sc-pw-nav-links">Home · News · Services · About</span>
+                        </div>
+                        <div class="sc-pw-content">
+                            @if (scLogo != null)
+                            {
+                                <img src="@scLogo" style="height:@(scLogoH)px; width:auto; object-fit:contain; max-width:75%; margin-bottom:0.2rem;" alt="logo" />
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" class="sc-pw-default-icon" viewBox="0 0 50 50" style="color:@scAccent">
+                                    <circle cx="25" cy="25" r="22" fill="none" stroke="currentColor" stroke-width="2.5"/>
+                                    <text x="25" y="31" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">CE</text>
+                                </svg>
+                            }
+                            <div class="sc-pw-orgname" style="color:@scTextCol">@sc.HeaderOrgName</div>
+                            <div class="sc-pw-quote" style="color:@(scTextCol)99">@sc.HeaderOrgQuote</div>
+                            <div class="sc-pw-cards">
+                                <div class="sc-pw-card" style="border-color:color-mix(in srgb,@scAccent 40%,transparent)"></div>
+                                <div class="sc-pw-card" style="border-color:color-mix(in srgb,@scAccent 40%,transparent)"></div>
+                                <div class="sc-pw-card" style="border-color:color-mix(in srgb,@scAccent 40%,transparent)"></div>
+                            </div>
+                        </div>
+                        <div class="sc-pw-theme-strip">
+                            <div class="sc-pw-swatch" style="background:@scAccent" title="Accent"></div>
+                            <div class="sc-pw-swatch" style="background:@scBright" title="Bright"></div>
+                            <div class="sc-pw-swatch" style="background:@scTextCol; border:1px solid rgba(255,255,255,0.25);" title="Text"></div>
+                            <span class="sc-pw-strip-label">@scPattern</span>
+                            @if (sc.BackgroundType == "image" && !string.IsNullOrEmpty(sc.BackgroundImageBase64) && !sc.ClearBackgroundImage)
+                            {
+                                <span class="sc-pw-strip-label" style="color:rgba(0,200,255,0.7);">custom bg</span>
+                            }
+                        </div>
+                    </div>
+
+                    @* ── Key changes summary ── *@
+                    <div class="preview-section-label">Proposed Changes</div>
+                    <div class="preview-fields">
+                        <div class="preview-field">
+                            <span class="pf-label">Background</span>
+                            <span class="pf-value">@sc.BackgroundType</span>
+                        </div>
+                        @if (sc.BackgroundType != "image" && !string.IsNullOrEmpty(sc.BackgroundValue))
+                        {
+                            <div class="preview-field">
+                                <span class="pf-label">BG Value</span>
+                                <span class="pf-value pf-truncate">@(sc.BackgroundValue.Length > 55 ? sc.BackgroundValue[..52] + "…" : sc.BackgroundValue)</span>
+                            </div>
+                        }
+                        @if (sc.BackgroundType == "image")
+                        {
+                            <div class="preview-field">
+                                <span class="pf-label">BG Image</span>
+                                <span class="pf-value">@(sc.ClearBackgroundImage ? "Cleared" : (!string.IsNullOrEmpty(sc.BackgroundImageBase64) ? "New image uploaded" : "Unchanged"))</span>
+                            </div>
+                        }
+                        <div class="preview-field">
+                            <span class="pf-label">BG Opacity</span>
+                            <span class="pf-value">@sc.BackgroundOpacity.ToString("P0")</span>
+                        </div>
+                        <div class="preview-field">
+                            <span class="pf-label">Pattern</span>
+                            <span class="pf-value">@sc.BackgroundPattern</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(sc.NavbarColor))
+                        {
+                            <div class="preview-field">
+                                <span class="pf-label">Navbar</span>
+                                <span class="pf-value" style="display:flex;align-items:center;gap:0.4rem;">
+                                    <span class="pf-color-dot" style="background:@sc.NavbarColor;"></span>
+                                    @sc.NavbarColor
+                                </span>
+                            </div>
+                        }
+                        <div class="preview-field"><span class="pf-label">Org Name</span><span class="pf-value">@sc.HeaderOrgName</span></div>
+                        @if (!string.IsNullOrEmpty(sc.HeaderOrgQuote))
+                        {
+                            <div class="preview-field"><span class="pf-label">Tagline</span><span class="pf-value">@sc.HeaderOrgQuote</span></div>
+                        }
+                        <div class="preview-field">
+                            <span class="pf-label">Logo</span>
+                            <span class="pf-value">@(sc.ClearHeaderLogo ? "Cleared" : (!string.IsNullOrEmpty(sc.HeaderLogoBase64) ? "New logo uploaded" : "Unchanged"))</span>
+                        </div>
+                        <div class="preview-field">
+                            <span class="pf-label">Accent</span>
+                            <span class="pf-value" style="display:flex;align-items:center;gap:0.4rem;">
+                                <span class="pf-color-dot" style="background:@sc.ThemeAccent;"></span>@sc.ThemeAccent
+                            </span>
+                        </div>
+                        <div class="preview-field">
+                            <span class="pf-label">Bright</span>
+                            <span class="pf-value" style="display:flex;align-items:center;gap:0.4rem;">
+                                <span class="pf-color-dot" style="background:@sc.ThemeAccentBright;"></span>@sc.ThemeAccentBright
+                            </span>
+                        </div>
+                        <div class="preview-field">
+                            <span class="pf-label">Text Color</span>
+                            <span class="pf-value" style="display:flex;align-items:center;gap:0.4rem;">
+                                <span class="pf-color-dot" style="background:@sc.ThemeTextColor; border:1px solid rgba(255,255,255,0.2);"></span>@sc.ThemeTextColor
+                            </span>
+                        </div>
+                        <div class="preview-field"><span class="pf-label">Font</span><span class="pf-value">@sc.ThemeFontFamily (@sc.ThemeFontSize%)</span></div>
+                        @if (!string.IsNullOrEmpty(sc.FooterOrgSub))
+                        {
+                            <div class="preview-field"><span class="pf-label">Footer Sub</span><span class="pf-value">@sc.FooterOrgSub</span></div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    @* Fallback: raw JSON (skip base64 blobs) *@
+                    <div class="preview-section-label">Proposed Changes</div>
+                    <div class="preview-fields">
+                        @try
+                        {
+                            using var doc = JsonDocument.Parse(_previewSiteChange.ProposedDataJson ?? "{}");
+                            foreach (var prop in doc.RootElement.EnumerateObject())
+                            {
+                                if (prop.Name.IndexOf("base64", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                                <div class="preview-field">
+                                    <span class="pf-label">@prop.Name</span>
+                                    <span class="pf-value">@prop.Value.ToString()</span>
+                                </div>
+                            }
+                        }
+                        catch
+                        {
+                            <div class="preview-body-text">@_previewSiteChange.ProposedDataJson</div>
+                        }
+                    </div>
+                }
+            }
+            @* ── ABOUT US CHANGE ── *@
+            @if (_previewType == "AboutUsChange" && _previewAboutUs != null)
+            {
+                var au = _previewAboutUs;
+                <div class="preview-item-title">@au.Title</div>
+                <div class="preview-item-meta">
+                    by @(au.ProposerName ?? au.ProposedBySchoolId) &bull; A.Y. @au.AcademicYear &bull; @au.CreatedAt.ToString("MMM d, yyyy")
+                </div>
+
+                @* Banner Image *@
+                <div class="preview-section-label">Banner Image</div>
+                @if (_previewAboutUsBannerLoading)
+                {
+                    <div class="preview-loading-msg">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+                        Loading banner…
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(_previewAboutUsBannerSrc))
+                {
+                    <div class="preview-image-gallery">
+                        <img src="@_previewAboutUsBannerSrc" class="preview-img-thumb preview-img-service" alt="banner" style="max-height:160px;width:100%;object-fit:cover;border-radius:6px;" />
+                    </div>
+                }
+                else
+                {
+                    <div class="preview-loading-msg" style="font-style:normal;color:rgba(255,255,255,0.3);">No banner image.</div>
+                }
+
+                @* President *@
+                @if (!string.IsNullOrEmpty(au.PresidentName))
+                {
+                    <div class="preview-section-label">President</div>
+                    <div class="preview-fields">
+                        <div class="preview-field"><span class="pf-label">Name</span><span class="pf-value">@au.PresidentName</span></div>
+                    </div>
+                }
+
+                @* Text content *@
+                <div class="preview-section-label">About Us Text</div>
+                <div class="preview-body-text">@(au.AboutUsText.Length > 400 ? au.AboutUsText[..400] + "…" : au.AboutUsText)</div>
+
+                <div class="preview-section-label">Vision</div>
+                <div class="preview-body-text">@(au.VisionText.Length > 300 ? au.VisionText[..300] + "…" : au.VisionText)</div>
+
+                <div class="preview-section-label">Mission</div>
+                <div class="preview-body-text">@(au.MissionText.Length > 300 ? au.MissionText[..300] + "…" : au.MissionText)</div>
+
+                @if (!string.IsNullOrEmpty(au.PresidentPersonalMessage))
+                {
+                    <div class="preview-section-label">President's Message</div>
+                    <div class="preview-body-text">@(au.PresidentPersonalMessage.Length > 400 ? au.PresidentPersonalMessage[..400] + "…" : au.PresidentPersonalMessage)</div>
+                }
+            }
+
+        </div>
+    </div>
+}
+
+<SuccessPopup IsVisible="_showSuccess" Message="@_successMessage" OnOkClick="() => _showSuccess = false" />
+
+@code {
+    private HttpClient Http => HttpClientFactory.CreateClient("general");
+    private bool IsLoading = true;
+    private List<NewsFeedPostViewModel> PendingPosts = new();
+    private List<UpcomingEventViewModel> PendingEvents = new();
+    private List<ServiceOfferedViewModel> PendingServices = new();
+
+    // Budget approval state
+    private List<BudgetTransactionViewModel> _pendingTransactions = new();
+    private bool _loadingBudget = true;
+    private List<BudgetAccountViewModel> _pendingAccounts = new();
+    private bool _loadingBudgetAccounts = true;
+
+    // Site change state
+    private List<SiteChangeItem> _pendingSiteChanges = new();
+    private bool _loadingSiteChanges = true;
+
+    // About Us change state
+    private List<AboutUsChangeProposalViewModel> _pendingAboutUsChanges = new();
+    private bool _loadingAboutUsChanges = true;
+    private AboutUsChangeProposalViewModel? _previewAboutUs;
+    private string? _previewAboutUsBannerSrc;
+    private bool _previewAboutUsBannerLoading;
+
+    private bool IsRejectModalOpen = false;
+    private string RejectReason = string.Empty;
+    private Func<Task>? _pendingRejectAction;
+    private object? _pendingRejectItem;
+
+    // Preview modal state
+    private bool _isPreviewOpen;
+    private string _previewType = string.Empty;
+    private NewsFeedPostViewModel?      _previewPost;
+    private UpcomingEventViewModel?     _previewEvent;
+    private ServiceOfferedViewModel?    _previewService;
+    private BudgetAccountViewModel?     _previewAccount;
+    private BudgetTransactionViewModel? _previewTransaction;
+    private SiteChangeItem?             _previewSiteChange;
+
+    // Image / receipt loading
+    private List<string>       _previewImages       = new();
+    private bool               _previewImagesLoading;
+    private string?            _previewReceiptSrc;
+    private string?            _previewReceiptMime;
+    private bool               _previewReceiptLoading;
+
+    // Parsed site settings for visual preview
+    private SiteSettingsRequest? _parsedSiteSettings;
+
+    private bool _showSuccess { get; set; }
+    private string _successMessage = "Operation successful.";
+
+    private string AdviserId => UserState.CurrentUser?.SchoolId ?? string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        IsLoading = true;
+        _ = LoadAllInBackground();
+        _ = LoadBudgetInBackground();
+        _ = LoadBudgetAccountsInBackground();
+        _ = LoadSiteChangesInBackground();
+        _ = LoadAboutUsChangesInBackground();
+    }
+
+    private async Task LoadAllInBackground()
+    {
+        var postsTask    = NewsFeedService.GetNewsFeedPostsAsync();
+        var eventsTask   = NewsFeedService.GetUpcomingEventsAsync();
+        var servicesTask = ServicesOfferedService.GetServicesOfferedAsync();
+        await Task.WhenAll(postsTask, eventsTask, servicesTask);
+
+        PendingPosts     = (await postsTask)?.Where(p => p.ApprovalStatus == "PendingApproval").ToList() ?? new();
+        PendingEvents    = (await eventsTask)?.Where(e => e.ApprovalStatus == "PendingApproval").ToList() ?? new();
+        PendingServices  = (await servicesTask)?.Where(s => s.ApprovalStatus == "PendingApproval").ToList() ?? new();
+        IsLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadBudgetInBackground()
+    {
+        try
+        {
+            _pendingTransactions = await Http.GetFromJsonAsync<List<BudgetTransactionViewModel>>(ApiEndpoints.Budget.Pending) ?? new();
+        }
+        catch { _pendingTransactions = new(); }
+        _loadingBudget = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadBudgetAccountsInBackground()
+    {
+        _pendingAccounts = await BudgetService.GetPendingAccountsAsync();
+        _loadingBudgetAccounts = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApproveBudgetAccount(BudgetAccountViewModel acct)
+    {
+        _pendingAccounts.Remove(acct);
+        StateHasChanged();
+        var ok = await BudgetService.ApproveAccountAsync(acct.Id, AdviserId);
+        if (!ok) { _pendingAccounts.Add(acct); return; }
+        _successMessage = "Program approved.";
+        _showSuccess = true;
+    }
+
+    private void OpenRejectBudgetAccount(BudgetAccountViewModel acct)
+    {
+        _pendingRejectItem = acct;
+        _pendingRejectAction = async () =>
+        {
+            _pendingAccounts.Remove(acct);
+            var ok = await BudgetService.RejectAccountAsync(acct.Id, AdviserId, RejectReason);
+            if (!ok) _pendingAccounts.Add(acct);
+            else { _successMessage = "Program rejected."; _showSuccess = true; }
+        };
+        OpenRejectModal();
+    }
+
+    private async Task LoadSiteChangesInBackground()
+    {
+        try
+        {
+            _pendingSiteChanges = await Http.GetFromJsonAsync<List<SiteChangeItem>>(ApiEndpoints.SiteChanges.Pending) ?? new();
+        }
+        catch { _pendingSiteChanges = new(); }
+        _loadingSiteChanges = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApproveBudget(BudgetTransactionViewModel tx)
+    {
+        _pendingTransactions.Remove(tx);
+        StateHasChanged();
+        var payload = new { approvedBySchoolId = AdviserId };
+        var resp = await Http.PutAsJsonAsync(ApiEndpoints.Budget.ApproveTransaction(tx.Id), payload);
+        if (!resp.IsSuccessStatusCode) { _pendingTransactions.Add(tx); return; }
+        _successMessage = "Budget transaction approved.";
+        _showSuccess = true;
+    }
+
+    private void OpenRejectBudget(BudgetTransactionViewModel tx)
+    {
+        _pendingRejectItem = tx;
+        _pendingRejectAction = async () =>
+        {
+            _pendingTransactions.Remove(tx);
+            var payload = new { approvedBySchoolId = AdviserId, rejectionReason = RejectReason };
+            var resp = await Http.PutAsJsonAsync(ApiEndpoints.Budget.RejectTransaction(tx.Id), payload);
+            if (!resp.IsSuccessStatusCode) _pendingTransactions.Add(tx);
+            else { _successMessage = "Budget transaction rejected."; _showSuccess = true; }
+        };
+        OpenRejectModal();
+    }
+
+    private async Task ApproveSiteChange(SiteChangeItem sc)
+    {
+        _pendingSiteChanges.Remove(sc);
+        StateHasChanged();
+        var payload = new { reviewedBySchoolId = AdviserId };
+        var resp = await Http.PutAsJsonAsync(ApiEndpoints.SiteChanges.Approve(sc.Id), payload);
+        if (!resp.IsSuccessStatusCode) { _pendingSiteChanges.Add(sc); return; }
+
+        // Force the frontend to fetch fresh settings and apply them live
+        await SettingsService.ForceReloadAsync();
+        await ApplySettingsToLiveSiteAsync();
+
+        _successMessage = "Website change approved and applied.";
+        _showSuccess = true;
+    }
+
+    private async Task ApplySettingsToLiveSiteAsync()
+    {
+        var s = SettingsService.Current;
+        try
+        {
+            await JS.InvokeVoidAsync("bgCustomizer.applyFromSettings", new
+            {
+                backgroundType       = s.BackgroundType,
+                backgroundValue      = s.BackgroundValue,
+                backgroundOpacity    = s.BackgroundOpacity,
+                backgroundSize       = s.BackgroundSize,
+                backgroundCustomSize = s.BackgroundCustomSize,
+                backgroundPosition   = s.BackgroundPosition,
+                navbarColor          = s.NavbarColor,
+                hasBackgroundImage   = s.HasBackgroundImage,
+                backgroundImageUrl   = ApiEndpoints.SiteSettings.BackgroundImage,
+                savedAt              = s.SavedAt,
+                backgroundPattern    = s.BackgroundPattern,
+            });
+            await JS.InvokeVoidAsync("themeCustomizer.apply", new
+            {
+                themeAccent       = s.ThemeAccent,
+                themeAccentBright = s.ThemeAccentBright,
+                themeTextColor    = s.ThemeTextColor,
+                themeFontFamily   = s.ThemeFontFamily,
+                themeFontSize     = s.ThemeFontSize,
+            });
+            var bgSize = string.IsNullOrWhiteSpace(s.BackgroundCustomSize)
+                ? (s.BackgroundSize ?? "cover") : s.BackgroundCustomSize;
+            var bgUrl = ApiEndpoints.SiteSettings.BackgroundImage + "?v=" + s.SavedAt;
+            await JS.InvokeVoidAsync("bgCustomizer.syncServerLayer",
+                s.HasBackgroundImage, bgUrl, bgSize,
+                s.BackgroundPosition ?? "center",
+                s.BackgroundOpacity.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        catch { }
+    }
+
+    private void OpenRejectSiteChange(SiteChangeItem sc)
+    {
+        _pendingRejectItem = sc;
+        _pendingRejectAction = async () =>
+        {
+            _pendingSiteChanges.Remove(sc);
+            var payload = new { reviewedBySchoolId = AdviserId, rejectionReason = RejectReason };
+            var resp = await Http.PutAsJsonAsync(ApiEndpoints.SiteChanges.Reject(sc.Id), payload);
+            if (!resp.IsSuccessStatusCode) _pendingSiteChanges.Add(sc);
+            else { _successMessage = "Website change rejected."; _showSuccess = true; }
+        };
+        OpenRejectModal();
+    }
+
+    private async Task ApprovePost(NewsFeedPostViewModel post)
+    {
+        PendingPosts.Remove(post);
+        var ok = await NewsFeedService.ApprovePostAsync(post.Id, AdviserId);
+        if (!ok) { PendingPosts.Add(post); return; }
+        _successMessage = "Post approved.";
+        _showSuccess = true;
+    }
+
+    private void OpenRejectPost(NewsFeedPostViewModel post)
+    {
+        _pendingRejectItem = post;
+        _pendingRejectAction = async () =>
+        {
+            PendingPosts.Remove(post);
+            var ok = await NewsFeedService.RejectPostAsync(post.Id, AdviserId, RejectReason);
+            if (!ok) PendingPosts.Add(post);
+            else { _successMessage = "Post rejected."; _showSuccess = true; }
+        };
+        OpenRejectModal();
+    }
+
+    private async Task ApproveEvent(UpcomingEventViewModel ev)
+    {
+        PendingEvents.Remove(ev);
+        var ok = await NewsFeedService.ApproveEventAsync(ev.Id, AdviserId);
+        if (!ok) { PendingEvents.Add(ev); return; }
+        _successMessage = "Event approved.";
+        _showSuccess = true;
+    }
+
+    private void OpenRejectEvent(UpcomingEventViewModel ev)
+    {
+        _pendingRejectItem = ev;
+        _pendingRejectAction = async () =>
+        {
+            PendingEvents.Remove(ev);
+            var ok = await NewsFeedService.RejectEventAsync(ev.Id, AdviserId, RejectReason);
+            if (!ok) PendingEvents.Add(ev);
+            else { _successMessage = "Event rejected."; _showSuccess = true; }
+        };
+        OpenRejectModal();
+    }
+
+    private async Task ApproveService(ServiceOfferedViewModel svc)
+    {
+        PendingServices.Remove(svc);
+        var ok = await ServicesOfferedService.ApproveServiceAsync(svc.Id, AdviserId);
+        if (!ok) { PendingServices.Add(svc); return; }
+        _successMessage = "Service approved.";
+        _showSuccess = true;
+    }
+
+    private void OpenRejectService(ServiceOfferedViewModel svc)
+    {
+        _pendingRejectItem = svc;
+        _pendingRejectAction = async () =>
+        {
+            PendingServices.Remove(svc);
+            var ok = await ServicesOfferedService.RejectServiceAsync(svc.Id, AdviserId, RejectReason);
+            if (!ok) PendingServices.Add(svc);
+            else { _successMessage = "Service rejected."; _showSuccess = true; }
+        };
+        OpenRejectModal();
+    }
+
+    private void OpenPreviewPost(NewsFeedPostViewModel p)
+    {
+        ClearPreview(); _previewType = "Post"; _previewPost = p; _isPreviewOpen = true;
+        _ = LoadPostImagesAsync(p);
+    }
+    private void OpenPreviewEvent(UpcomingEventViewModel e)
+    {
+        ClearPreview(); _previewType = "Event"; _previewEvent = e; _isPreviewOpen = true;
+        _ = LoadEventImageAsync(e);
+    }
+    private void OpenPreviewService(ServiceOfferedViewModel s)
+    {
+        ClearPreview(); _previewType = "Service"; _previewService = s; _isPreviewOpen = true;
+        _ = LoadServiceImageAsync(s);
+    }
+    private void OpenPreviewAccount(BudgetAccountViewModel a)
+    {
+        ClearPreview(); _previewType = "Account"; _previewAccount = a; _isPreviewOpen = true;
+    }
+    private void OpenPreviewTransaction(BudgetTransactionViewModel t)
+    {
+        ClearPreview(); _previewType = "Transaction"; _previewTransaction = t; _isPreviewOpen = true;
+        _ = LoadReceiptAsync(t.Id);
+    }
+    private void OpenPreviewSiteChange(SiteChangeItem sc)
+    {
+        ClearPreview(); _previewType = "SiteChange"; _previewSiteChange = sc; _isPreviewOpen = true;
+        _parsedSiteSettings = ParseSiteSettingsJson(sc.ProposedDataJson);
+    }
+    private void ClearPreview()
+    {
+        _previewPost = null; _previewEvent = null; _previewService = null;
+        _previewAccount = null; _previewTransaction = null; _previewSiteChange = null;
+        _previewAboutUs = null;
+        _previewImages = new(); _previewImagesLoading = false;
+        _previewReceiptSrc = null; _previewReceiptMime = null; _previewReceiptLoading = false;
+        _parsedSiteSettings = null;
+        _previewAboutUsBannerSrc = null; _previewAboutUsBannerLoading = false;
+    }
+    private void ClosePreview() { _isPreviewOpen = false; }
+
+    // ── Image / receipt loading helpers ───────────────────────────────────────
+
+    private async Task LoadPostImagesAsync(NewsFeedPostViewModel post)
+    {
+        var urls = (post.ImageUrl ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries);
+        if (urls.Length == 0) return;
+        _previewImagesLoading = true;
+        await InvokeAsync(StateHasChanged);
+        var images = new List<string>();
+        foreach (var url in urls.Take(4))
+        {
+            var dataUrl = await FetchAsDataUrlAsync(url.Trim());
+            if (dataUrl != null) images.Add(dataUrl);
+        }
+        _previewImages = images;
+        _previewImagesLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadEventImageAsync(UpcomingEventViewModel ev)
+    {
+        if (string.IsNullOrEmpty(ev.ImageUrl)) return;
+        _previewImagesLoading = true;
+        await InvokeAsync(StateHasChanged);
+        var dataUrl = await FetchAsDataUrlAsync(ev.ImageUrl);
+        if (dataUrl != null) _previewImages.Add(dataUrl);
+        _previewImagesLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadServiceImageAsync(ServiceOfferedViewModel svc)
+    {
+        if (string.IsNullOrEmpty(svc.ImageUrl)) return;
+        _previewImagesLoading = true;
+        await InvokeAsync(StateHasChanged);
+        var dataUrl = await FetchAsDataUrlAsync(svc.ImageUrl);
+        if (dataUrl != null) _previewImages.Add(dataUrl);
+        _previewImagesLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadReceiptAsync(int transactionId)
+    {
+        _previewReceiptLoading = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var resp = await Http.GetAsync($"api/Budget/transactions/{transactionId}/receipt");
+            if (resp.IsSuccessStatusCode)
+            {
+                var bytes = await resp.Content.ReadAsByteArrayAsync();
+                var mime  = resp.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+                if (bytes.Length > 0)
+                {
+                    _previewReceiptMime = mime;
+                    _previewReceiptSrc  = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+                }
+            }
+        }
+        catch { }
+        _previewReceiptLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task<string?> FetchAsDataUrlAsync(string relativeOrDataUrl)
+    {
+        if (string.IsNullOrEmpty(relativeOrDataUrl)) return null;
+        if (relativeOrDataUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) return relativeOrDataUrl;
+        try
+        {
+            var fullUrl = ApiEndpoints.Files.ToFullUrl(relativeOrDataUrl);
+            var resp    = await Http.GetAsync(fullUrl);
+            if (!resp.IsSuccessStatusCode) return null;
+            var bytes = await resp.Content.ReadAsByteArrayAsync();
+            if (bytes.Length == 0) return null;
+            var mime = resp.Content.Headers.ContentType?.MediaType ?? "image/png";
+            return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+        }
+        catch { return null; }
+    }
+
+    // ── Site settings parsing ──────────────────────────────────────────────────
+
+    private static SiteSettingsRequest? ParseSiteSettingsJson(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<SiteSettingsRequest>(json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch { return null; }
+    }
+
+    private static string BuildSitePreviewBgCss(SiteSettingsRequest s)
+    {
+        if (s.BackgroundType == "image" && !string.IsNullOrEmpty(s.BackgroundImageBase64) && !s.ClearBackgroundImage)
+            return $"url('data:{s.BackgroundImageMimeType};base64,{s.BackgroundImageBase64}')";
+        return s.BackgroundValue ?? "#07130a";
+    }
+
+    private void OpenRejectModal()
+    {
+        RejectReason = string.Empty;
+        IsRejectModalOpen = true;
+    }
+
+    private void CloseRejectModal()
+    {
+        IsRejectModalOpen = false;
+        _pendingRejectAction = null;
+        _pendingRejectItem = null;
+    }
+
+    private async Task ConfirmReject()
+    {
+        if (_pendingRejectAction == null) return;
+        var action = _pendingRejectAction;
+        CloseRejectModal();
+        await action();
+        StateHasChanged();
+    }
+
+    // ── About Us Changes ────────────────────────────────────────────────────────
+
+    private async Task LoadAboutUsChangesInBackground()
+    {
+        try
+        {
+            _pendingAboutUsChanges = await Http.GetFromJsonAsync<List<AboutUsChangeProposalViewModel>>(ApiEndpoints.AboutUsChanges.Pending) ?? new();
+        }
+        catch { _pendingAboutUsChanges = new(); }
+        _loadingAboutUsChanges = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ApproveAboutUsChange(AboutUsChangeProposalViewModel item)
+    {
+        _pendingAboutUsChanges.Remove(item);
+        StateHasChanged();
+        var payload = new { reviewedBySchoolId = AdviserId };
+        var resp = await Http.PutAsJsonAsync(ApiEndpoints.AboutUsChanges.Approve(item.Id), payload);
+        if (!resp.IsSuccessStatusCode) { _pendingAboutUsChanges.Add(item); return; }
+        _successMessage = "About Us change approved and applied.";
+        _showSuccess = true;
+    }
+
+    private void OpenRejectAboutUsChange(AboutUsChangeProposalViewModel item)
+    {
+        _pendingRejectItem = item;
+        _pendingRejectAction = async () =>
+        {
+            _pendingAboutUsChanges.Remove(item);
+            var payload = new { reviewedBySchoolId = AdviserId, rejectionReason = RejectReason };
+            var resp = await Http.PutAsJsonAsync(ApiEndpoints.AboutUsChanges.Reject(item.Id), payload);
+            if (!resp.IsSuccessStatusCode) _pendingAboutUsChanges.Add(item);
+            else { _successMessage = "About Us change rejected."; _showSuccess = true; }
+        };
+        OpenRejectModal();
+    }
+
+    private void OpenPreviewAboutUsChange(AboutUsChangeProposalViewModel item)
+    {
+        ClearPreview();
+        _previewType = "AboutUsChange";
+        _previewAboutUs = item;
+        _isPreviewOpen = true;
+        if (item.HasBannerImage)
+            _ = LoadAboutUsBannerAsync(item.Id);
+    }
+
+    private async Task LoadAboutUsBannerAsync(int proposalId)
+    {
+        _previewAboutUsBannerLoading = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var resp = await Http.GetAsync($"api/AboutUsChanges/{proposalId}/banner");
+            if (resp.IsSuccessStatusCode)
+            {
+                var bytes = await resp.Content.ReadAsByteArrayAsync();
+                var mime = resp.Content.Headers.ContentType?.MediaType ?? "image/png";
+                if (bytes.Length > 0)
+                    _previewAboutUsBannerSrc = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+            }
+        }
+        catch { }
+        _previewAboutUsBannerLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private class SiteChangeItem
+    {
+        public int Id { get; set; }
+        public string ChangeType { get; set; } = string.Empty;
+        public string? ProposedBySchoolId { get; set; }
+        public string? ProposedByName { get; set; }
+        public string? ProposedDataJson { get; set; }
+        public string Status { get; set; } = "Pending";
+        public DateTime CreatedAt { get; set; }
+    }
+}

@@ -1,0 +1,305 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.APIs
+@inject IHttpClientFactory HttpClientFactory
+@inject UserStateService UserState
+
+<div class="mgt-officers">
+
+    <div class="mgt-header">
+        <div class="mgt-header-left">
+            <h2 class="mgt-title">Advisers Management</h2>
+            <span class="mgt-subtitle">Manage adviser appointments</span>
+        </div>
+        <button class="btn-add-sy" @onclick="OpenAddModal">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Adviser
+        </button>
+    </div>
+
+    @if (_loading)
+    {
+        <SkeletonOfficerMgmt Count="3" />
+    }
+    else
+    {
+        <div class="officers-panel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="panel-header-icon"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span class="panel-year">Active Advisers</span>
+                    @if (_advisers.Count > 0)
+                    {
+                        <span class="officer-count">@_advisers.Count adviser@(_advisers.Count != 1 ? "s" : "")</span>
+                    }
+                </div>
+            </div>
+
+            @if (_advisers.Count == 0)
+            {
+                <div class="panel-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" class="panel-empty-icon"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <p>No advisers yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="officer-grid">
+                    @foreach (var adv in _advisers)
+                    {
+                        <div class="officer-card">
+                            <div class="officer-card-photo">
+                                <div class="officer-photo-placeholder">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                </div>
+                            </div>
+                            <div class="officer-card-body">
+                                <div class="officer-name">@adv.FirstName @adv.LastName</div>
+                                <div class="officer-position">@adv.SchoolId</div>
+                                <div class="officer-quote">@adv.SchoolEmail</div>
+                                @if (adv.AppointedAt.HasValue)
+                                {
+                                    <div class="officer-quote" style="font-style:normal;">
+                                        Appointed @adv.AppointedAt.Value.ToString("MMM d, yyyy")
+                                        @if (!string.IsNullOrEmpty(adv.AppointedBy))
+                                        {
+                                            <span> by @adv.AppointedBy</span>
+                                        }
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(adv.Notes))
+                                {
+                                    <div class="officer-quote">"@adv.Notes"</div>
+                                }
+                            </div>
+                            <div class="officer-card-actions">
+                                <button class="btn-icon btn-del" @onclick="() => ConfirmRemove(adv)" title="Remove Adviser">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+</div>
+
+<!-- Add Adviser Modal -->
+@if (_addOpen)
+{
+    <div class="mo-overlay" @onclick="CloseModal">
+        <div class="mo-card mo-card-wide" @onclick:stopPropagation="true">
+            <div class="mo-header">
+                <h3 class="mo-title">Appoint Adviser</h3>
+            </div>
+            <div class="mo-body">
+                <div class="mo-field">
+                    <label class="mo-label">School ID <span class="required">*</span></label>
+                    <div class="school-id-row">
+                        <input class="mo-input" type="text" placeholder="e.g. 2022000760"
+                               value="@_schoolId" @oninput="OnSchoolIdInput" />
+                        <button class="btn-verify" @onclick="VerifySchoolId"
+                                disabled="@(_verifying || string.IsNullOrWhiteSpace(_schoolId))">
+                            @(_verifying ? "Verifyingâ€¦" : "Verify")
+                        </button>
+                    </div>
+                    @if (_notFound)
+                    {
+                        <div class="school-id-error">School ID not found.</div>
+                    }
+                    @if (_verifiedUser != null)
+                    {
+                        <div class="school-id-verified">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <div class="school-id-verified-info">
+                                <span class="school-id-verified-name">@_verifiedUser.firstName @_verifiedUser.lastName</span>
+                                <span class="school-id-verified-email">@_verifiedUser.schoolEmail</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="mo-field">
+                    <label class="mo-label">Notes (Optional)</label>
+                    <textarea class="mo-textarea" rows="2" placeholder="e.g. Faculty adviser for A.Y. 2025-2026" @bind="_notes"></textarea>
+                </div>
+                @if (!string.IsNullOrEmpty(_modalError))
+                {
+                    <div class="mo-error">@_modalError</div>
+                }
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="CloseModal">Cancel</button>
+                <button class="btn-save" @onclick="AppointAdviser"
+                        disabled="@(_saving || _verifiedUser == null)">
+                    @(_saving ? "Appointingâ€¦" : "Appoint Adviser")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Remove Confirm -->
+@if (_removeTarget != null)
+{
+    <div class="mo-overlay" @onclick="() => _removeTarget = null">
+        <div class="mo-card mo-card-sm" @onclick:stopPropagation="true">
+            <div class="mo-header mo-header-danger">
+                <h3 class="mo-title mo-title-danger">Remove Adviser</h3>
+            </div>
+            <div class="mo-body">
+                <p class="delete-confirm-text">Remove adviser status from:</p>
+                <p class="delete-confirm-name">@_removeTarget.LastName, @_removeTarget.FirstName</p>
+                <p class="delete-confirm-warning">This action cannot be undone.</p>
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="() => _removeTarget = null">Cancel</button>
+                <button class="btn-delete" @onclick="RemoveAdviser">Remove</button>
+            </div>
+        </div>
+    </div>
+}
+
+<SuccessPopup IsVisible="_showSuccess" Message="@_successMessage" OnOkClick="() => _showSuccess = false" />
+
+@code {
+    private HttpClient Http => HttpClientFactory.CreateClient("general");
+    private List<AdviserRow> _advisers = new();
+    private bool _loading = true;
+
+    private bool _addOpen = false;
+    private string _schoolId = string.Empty;
+    private string _notes = string.Empty;
+    private bool _verifying = false;
+    private bool _notFound = false;
+    private bool _saving = false;
+    private string _modalError = string.Empty;
+    private LookupResult? _verifiedUser;
+
+    private AdviserRow? _removeTarget;
+    private bool _showSuccess { get; set; }
+    private string _successMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadAdvisers();
+
+    private async Task LoadAdvisers()
+    {
+        _loading = true;
+        try
+        {
+            var list = await Http.GetFromJsonAsync<List<AdviserRow>>(ApiEndpoints.Advisers.Base);
+            _advisers = list ?? new();
+        }
+        catch { }
+        _loading = false;
+    }
+
+    private void OpenAddModal()
+    {
+        _schoolId = string.Empty;
+        _notes = string.Empty;
+        _verifiedUser = null;
+        _notFound = false;
+        _modalError = string.Empty;
+        _addOpen = true;
+    }
+
+    private void OnSchoolIdInput(ChangeEventArgs e)
+    {
+        _schoolId = e.Value?.ToString() ?? string.Empty;
+        _verifiedUser = null;
+        _notFound = false;
+    }
+
+    private async Task VerifySchoolId()
+    {
+        var sid = _schoolId.Trim();
+        if (string.IsNullOrEmpty(sid)) return;
+        _verifying = true;
+        _notFound = false;
+        _verifiedUser = null;
+        StateHasChanged();
+
+        try
+        {
+            var result = await Http.GetFromJsonAsync<LookupResult>($"api/Officers/lookup-user/{Uri.EscapeDataString(sid)}");
+            _verifiedUser = result;
+            _notFound = result == null;
+        }
+        catch { _notFound = true; }
+
+        _verifying = false;
+    }
+
+    private async Task AppointAdviser()
+    {
+        if (_verifiedUser == null) return;
+        _saving = true;
+        _modalError = string.Empty;
+
+        var currentUser = UserState.CurrentUser;
+        var payload = new
+        {
+            schoolId             = _schoolId.Trim(),
+            appointedBySchoolId  = currentUser?.SchoolId ?? string.Empty,
+            notes                = _notes,
+        };
+
+        var response = await Http.PostAsJsonAsync(ApiEndpoints.Advisers.Appoint, payload);
+        _saving = false;
+
+        if (response.IsSuccessStatusCode)
+        {
+            _addOpen = false;
+            await LoadAdvisers();
+            _successMessage = "Adviser appointed successfully.";
+            _showSuccess = true;
+        }
+        else
+        {
+            _modalError = "Failed to appoint adviser. Please try again.";
+        }
+    }
+
+    private void ConfirmRemove(AdviserRow adv) => _removeTarget = adv;
+
+    private async Task RemoveAdviser()
+    {
+        if (_removeTarget == null) return;
+        var target = _removeTarget;
+        _removeTarget = null;
+
+        var response = await Http.DeleteAsync(ApiEndpoints.Advisers.Remove(target.SchoolId));
+        if (response.IsSuccessStatusCode)
+        {
+            _advisers.Remove(target);
+            _successMessage = "Adviser removed.";
+            _showSuccess = true;
+        }
+    }
+
+    private void CloseModal()
+    {
+        _addOpen = false;
+        _modalError = string.Empty;
+    }
+
+    private class AdviserRow
+    {
+        public string SchoolId { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string SchoolEmail { get; set; } = string.Empty;
+        public DateTime? AppointedAt { get; set; }
+        public string? AppointedBy { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    private class LookupResult
+    {
+        public string schoolId { get; set; } = string.Empty;
+        public string firstName { get; set; } = string.Empty;
+        public string lastName { get; set; } = string.Empty;
+        public string schoolEmail { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,165 @@
+﻿@inject CreateAccountViewModel ViewModel
+
+@if (IsVisible)
+{
+    <div class="modal-overlay" @onclick="HandleOverlayClick">
+        <div class="modal-card" @onclick:stopPropagation="true">
+
+            <div class="modal-header">
+                <h1 class="modal-title">Create an Account</h1>
+                <p class="modal-subtitle">Create an account to unlock ComES membership inclusions.</p>
+            </div>
+
+            <div class="form-body">
+
+                <div class="field-group">
+                    <label class="field-label">School ID</label>
+                    <div class="name-row">
+                        <input class="form-input @(ViewModel.SchoolIdError is not null ? "input-error" : "")" type="text" placeholder="School ID" @bind="ViewModel.SchoolId" />
+                    </div>
+                    @if (ViewModel.SchoolIdError is not null)
+                    {
+                        <span class="field-error">@ViewModel.SchoolIdError</span>
+                    }
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Name</label>
+                    <div class="name-row">
+                        <input class="form-input @(ViewModel.FirstNameError is not null ? "input-error" : "")" type="text" placeholder="First Name" @bind="ViewModel.FirstName" />
+                        <input class="form-input @(ViewModel.LastNameError is not null ? "input-error" : "")" type="text" placeholder="Last Name" @bind="ViewModel.LastName" />
+                    </div>
+                    @if (ViewModel.FirstNameError is not null)
+                    {
+                        <span class="field-error">@ViewModel.FirstNameError</span>
+                    }
+                    @if (ViewModel.LastNameError is not null)
+                    {
+                        <span class="field-error">@ViewModel.LastNameError</span>
+                    }
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Birthdate</label>
+                    <input class="form-input date-input full-input @(ViewModel.BirthdateError is not null ? "input-error" : "")" type="date" @bind="ViewModel.Birthdate" />
+                    @if (ViewModel.BirthdateError is not null)
+                    {
+                        <span class="field-error">@ViewModel.BirthdateError</span>
+                    }
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Year Level</label>
+                    <input class="form-input year-level-input @(ViewModel.YearLevelError is not null ? "input-error" : "")" type="text" placeholder="Year level" @bind="ViewModel.YearLevel" />
+                    @if (ViewModel.YearLevelError is not null)
+                    {
+                        <span class="field-error">@ViewModel.YearLevelError</span>
+                    }
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">School Email</label>
+                    <input class="form-input full-input @(ViewModel.SchoolEmailError is not null ? "input-error" : "")" type="email" placeholder="School Email (@@usjr.edu.ph)" @bind="ViewModel.SchoolEmail" />
+                    @if (ViewModel.SchoolEmailError is not null)
+                    {
+                        <span class="field-error">@ViewModel.SchoolEmailError</span>
+                    }
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Password</label>
+                    <div class="password-wrapper">
+                        <input class="form-input full-input password-input @(ViewModel.PasswordError is not null ? "input-error" : "")" type="@(showPassword ? "text" : "password")" placeholder="Password" @bind="ViewModel.Password" />
+                        <button class="password-toggle" type="button" @onclick="() => showPassword = !showPassword" tabindex="-1">
+                            @if (showPassword)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                                    <line x1="1" y1="1" x2="23" y2="23" />
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                            }
+                        </button>
+                    </div>
+                    @if (ViewModel.PasswordError is not null)
+                    {
+                        <span class="field-error">@ViewModel.PasswordError</span>
+                    }
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">Confirm Password</label>
+                    <div class="password-wrapper">
+                        <input class="form-input full-input password-input @(ViewModel.ConfirmPasswordError is not null ? "input-error" : "")" type="@(showConfirmPassword ? "text" : "password")" placeholder="Confirm Password" @bind="ViewModel.ConfirmPassword" />
+                        <button class="password-toggle" type="button" @onclick="() => showConfirmPassword = !showConfirmPassword" tabindex="-1">
+                            @if (showConfirmPassword)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                                    <line x1="1" y1="1" x2="23" y2="23" />
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                            }
+                        </button>
+                    </div>
+                    @if (ViewModel.ConfirmPasswordError is not null)
+                    {
+                        <span class="field-error">@ViewModel.ConfirmPasswordError</span>
+                    }
+                </div>
+
+                <div class="terms-row">
+                    <input class="terms-checkbox" type="checkbox" id="terms-checkbox" @bind="ViewModel.TermsAccepted" />
+                    <label class="terms-label" for="terms-checkbox">By CHECKING, you agree to create an account and Accept Terms and Condition</label>
+                </div>
+                @if (ViewModel.TermsError is not null)
+                {
+                    <span class="field-error">@ViewModel.TermsError</span>
+                }
+
+                @if (ViewModel.ErrorMessage is not null)
+                {
+                    <p class="error-message">@ViewModel.ErrorMessage</p>
+                }
+
+                <button class="submit-btn" @onclick="HandleSubmit" disabled="@ViewModel.IsLoading">
+                    @(ViewModel.IsLoading ? "Creating Account..." : "Create Account")
+                </button>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSuccess { get; set; }
+
+    private bool showPassword = false;
+    private bool showConfirmPassword = false;
+
+    private async Task HandleOverlayClick()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task HandleSubmit()
+    {
+        await ViewModel.ExecuteCreateAccountAsync();
+        if (ViewModel.IsSuccess)
+            await OnSuccess.InvokeAsync();
+    }
+}

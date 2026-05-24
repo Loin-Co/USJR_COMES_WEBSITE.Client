@@ -1,0 +1,721 @@
+﻿@using USJR_COMES_WEBSITE.APIs
+@inject USJR_COMES_WEBSITE.ViewModels.ManagementServicesViewModel ViewModel
+@inject USJR_COMES_WEBSITE.Services.UserStateService UserState
+@inject Microsoft.JSInterop.IJSRuntime JS
+@inject IHttpClientFactory HttpClientFactory
+@implements IDisposable
+
+<div class="services-wrapper">
+
+    <!-- Mobile-only sticky service selector bar -->
+    <div class="mobile-svc-bar">
+        <button class="mobile-svc-toggle" @onclick="() => _mobileDrawerOpen = !_mobileDrawerOpen">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            <span class="mobile-svc-name">
+                @(ViewModel.SelectedService != null ? ViewModel.SelectedService.Name : "Select a Service")
+            </span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" class="mobile-svc-chevron @(_mobileDrawerOpen ? "open" : "")"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <button class="add-btn mobile-svc-add-btn" @onclick="ViewModel.OpenAddServiceModalAsync" title="Add Service">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </button>
+    </div>
+
+    <!-- Mobile backdrop -->
+    @if (_mobileDrawerOpen)
+    {
+        <div class="mobile-svc-backdrop" @onclick="() => _mobileDrawerOpen = false"></div>
+    }
+
+    <!-- Left Sidebar for Services (becomes bottom-sheet on mobile) -->
+    <div class="services-sidebar border-end @(_mobileDrawerOpen ? "mobile-drawer-open" : "")">
+        <div class="sidebar-header">
+            <h3 class="m-0">Services</h3>
+            <button class="add-btn" @onclick="ViewModel.OpenAddServiceModalAsync" title="Add Service">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="sidebar-search">
+            <input type="text" class="form-control" placeholder="Search services..." @bind="ViewModel.ServiceSearchTerm" @bind:event="oninput" />
+        </div>
+        <div class="services-list">
+            @if (ViewModel.Services == null)
+            {
+                @for (int i = 0; i < 5; i++)
+                {
+                    <div style="display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:6px;background:rgba(255,255,255,0.04);margin-bottom:4px;">
+                        <div class="skeleton" style="height:13px;width:80%;"></div>
+                        <div class="skeleton" style="height:10px;width:50%;"></div>
+                    </div>
+                }
+            }
+            else
+            {
+                @foreach (var svc in ViewModel.FilteredServices)
+                {
+                    <div class="service-item @(ViewModel.SelectedService?.Id == svc.Id ? "active" : "")" @onclick="() => SelectService(svc)">
+                        <div class="service-title">@svc.Name</div>
+                        <div class="service-type">@ViewModel.GetFriendlyTypeName(svc.ActionType)</div>
+                        @if (svc.ApprovalStatus == "PendingApproval")
+                        {
+                            <span class="badge bg-warning text-dark" style="font-size:0.65rem;">Pending Approval</span>
+                        }
+                        else if (svc.ApprovalStatus == "Rejected")
+                        {
+                            <span class="badge bg-danger" style="font-size:0.65rem;">Rejected</span>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="services-main">
+        @if (ViewModel.SelectedService != null)
+        {
+            <div class="main-header border-bottom">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <h2 class="m-0" style="color: #00ff88;">@ViewModel.SelectedService.Name</h2>
+
+                    <button class="btn btn-sm @(ViewModel.SelectedService.IsPublished ? "btn-outline-secondary" : "btn-outline-theme")" @onclick="ViewModel.TogglePublishStatusAsync" title="Toggle Publish Status">
+                        <i class="bi @(ViewModel.SelectedService.IsPublished ? "bi-eye-slash" : "bi-eye")"></i> @(ViewModel.SelectedService.IsPublished ? "Unpublish" : "Publish")
+                    </button>
+
+                    <button class="btn btn-sm btn-outline-theme" @onclick="ViewModel.OpenEditServiceModal" title="Edit Service">
+                        <i class="bi bi-pencil"></i> Edit Service
+                    </button>
+
+                    <button class="btn btn-sm btn-outline-danger" @onclick="ViewModel.DeleteSelectedServiceAsync" title="Delete Service">
+                        <i class="bi bi-trash"></i> Delete Service
+                    </button>
+
+                    <!-- CSV Export -->
+                    <div class="csv-export-group ms-auto">
+                        <select class="form-select form-select-sm csv-status-select" @bind="ViewModel.CsvExportStatus">
+                            <option value="All">Export: All</option>
+                            <option value="Pending">Pending only</option>
+                            <option value="Printed">Printed only</option>
+                            <option value="Verified">Verified only</option>
+                            <option value="Completed">Completed only</option>
+                            <option value="Confirmed">Confirmed only</option>
+                            <option value="Cleared">Cleared only</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-theme csv-btn" @onclick="ExportCsvAsync" title="Download CSV">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Export CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="main-filters d-flex gap-2 mt-3 p-2 bg-light rounded border">
+                    <input type="text" class="form-control" placeholder="Search requests..." @bind="ViewModel.RequestSearchTerm" @bind:event="oninput" style="max-width: 300px;" />
+                    <select class="form-select" @bind="ViewModel.SortOrder" style="max-width: 150px;">
+                        <option value="None">Sort: None</option>
+                        <option value="A-Z">Name: A-Z</option>
+                        <option value="Z-A">Name: Z-A</option>
+                    </select>
+                    <select class="form-select" @bind="ViewModel.StatusFilter" style="max-width: 150px;">
+                        <option value="All">Status: All</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Printed">Printed</option>
+                        <option value="Verified">Verified</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Cleared">Cleared</option>
+                    </select>
+                    @if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.FileUpload)
+                    {
+                        <select class="form-select" @bind="ViewModel.FileTypeFilter" style="max-width: 150px;">
+                            <option value="All">File: All</option>
+                            <option value="PDF">PDF</option>
+                            <option value="DOCX">DOCX/DOC</option>
+                            <option value="Image">Image</option>
+                        </select>
+                    }
+                </div>
+            </div>
+
+            <div class="requests-list p-3">
+                @if (ViewModel.FilteredRequests != null && ViewModel.FilteredRequests.Any())
+                {
+                    @foreach (var req in ViewModel.FilteredRequests)
+                    {
+                        <div class="request-card shadow-sm border mb-3" style="cursor: pointer;" @onclick="() => ViewModel.ViewRequest(req)">
+                            <div class="req-info">
+                                <div class="req-name mb-1">@req.UserName</div>
+                                <div class="req-meta text-muted">
+                                    @foreach(var item in req.GetDynamicData())
+                                    {
+                                        if (item.Key != "FileData")
+                                        {
+                                            <span>â€¢ @item.Key: @item.Value</span>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                            <div class="req-actions" @onclick:stopPropagation="true">
+                                <span class="badge status-badge @ViewModel.GetStatusClass(req.Status)">@req.Status</span>
+
+                                @if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.FileUpload && req.Status == "Pending")
+                                {
+                                    <button class="btn btn-sm btn-primary theme-button" @onclick="@(() => ViewModel.ViewRequest(req))">Preview & Print</button>
+                                }
+                                else if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.Payment && req.Status == "Pending")
+                                {
+                                    <button class="btn btn-sm btn-primary theme-button" @onclick="@(() => ViewModel.ChangeRequestStatusAsync(req, "Verified"))">Verify Payment</button>
+                                }
+                                else if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.Inventory && req.Status == "Pending")
+                                {
+                                    <button class="btn btn-sm btn-primary theme-button" @onclick="@(() => ViewModel.ChangeRequestStatusAsync(req, "Completed"))">Confirm Order</button>
+                                }
+                                else if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.Appointment && req.Status == "Pending")
+                                {
+                                    <button class="btn btn-sm btn-primary theme-button" @onclick="@(() => ViewModel.ChangeRequestStatusAsync(req, "Confirmed"))">Approve Slot</button>
+                                }
+                                else if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.Clearance && req.Status == "Pending")
+                                {
+                                    <button class="btn btn-sm btn-primary theme-button" @onclick="@(() => ViewModel.ChangeRequestStatusAsync(req, "Cleared"))">Clear Request</button>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="no-requests py-5 text-center" style="color:rgba(255,255,255,0.4);">
+                        <p>No requests found matching your search.</p>
+                    </div>
+                }
+            </div>
+        }
+        else if (ViewModel.Services == null)
+        {
+            <div class="p-4" style="display:flex;flex-direction:column;gap:16px;">
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                    <div class="skeleton" style="height:28px;width:200px;border-radius:6px;"></div>
+                    <div class="skeleton" style="height:30px;width:90px;border-radius:6px;"></div>
+                    <div class="skeleton" style="height:30px;width:110px;border-radius:6px;"></div>
+                    <div class="skeleton" style="height:30px;width:110px;border-radius:6px;"></div>
+                </div>
+                <div class="skeleton" style="height:44px;width:100%;border-radius:6px;"></div>
+                @for (int i = 0; i < 5; i++)
+                {
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:8px;background:rgba(255,255,255,0.03);">
+                        <div style="flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;">
+                            <div class="skeleton" style="height:13px;width:45%;"></div>
+                            <div class="skeleton" style="height:11px;width:68%;"></div>
+                        </div>
+                        <div class="skeleton" style="height:24px;width:80px;border-radius:12px;flex-shrink:0;"></div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="no-selection d-flex align-items-center justify-content-center flex-column h-100" style="color:rgba(255,255,255,0.4);">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mb-3 opacity-50"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                <p>Select a service from the sidebar to view its requests.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@if (ViewModel.IsAddModalOpen)
+{
+    <div class="modal-overlay" @onclick="ViewModel.CloseAddServiceModal">
+        <div class="modal-card form-modal-card" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="modal-title">Create New Service</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label>Service Title</label>
+                    <input type="text" class="form-control" maxlength="50"
+                           value="@ViewModel.NewService.Name"
+                           @oninput="e => ViewModel.NewService.Name = e.Value?.ToString() ?? ViewModel.NewService.Name"
+                           placeholder="e.g. Printing Service" />
+                    <span class="char-counter @((ViewModel.NewService.Name?.Length ?? 0) >= 45 ? "char-counter-warn" : "")">@(ViewModel.NewService.Name?.Length ?? 0) / 50</span>
+                </div>
+                <div class="form-group mb-3">
+                    <label>Action Type</label>
+                    <select class="form-control" @bind="ViewModel.NewService.ActionType">
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.FileUpload)">1. File Upload & Processing (e.g., Printing)</option>
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Payment)">2. Proof of Payment / Transaction (e.g., Memberships)</option>
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Inventory)">3. Inventory & Variation (e.g., Merch Sales)</option>
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Appointment)">4. Appointment / Schedule (e.g., Consultations)</option>
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Clearance)">5. Simple Inquiry / Clearance (e.g., Borrowing Items)</option>
+                    </select>
+                </div>
+                @if (ViewModel.NewService.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Payment)
+                {
+                    <div class="form-group mb-3">
+                        <label>Budget Program</label>
+                        <select class="form-control" value="@ViewModel.NewService.BudgetAccountId"
+                                @onchange="e => ViewModel.NewService.BudgetAccountId = e.Value != null && int.TryParse(e.Value.ToString(), out var v) ? (int?)v : null">
+                            <option value="">â€” Select a budget program â€”</option>
+                            @foreach (var acct in _budgetAccounts ?? new())
+                            {
+                                <option value="@acct.Id">@acct.Title</option>
+                            }
+                        </select>
+                        <small class="text-muted">The budget program that will receive this payment.</small>
+                    </div>
+                    <div class="form-group mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="checkbox" id="chkMembershipAdd" class="form-check-input mt-0"
+                                   checked="@ViewModel.NewService.IsForMembership"
+                                   @onchange="e => ViewModel.NewService.IsForMembership = (bool)(e.Value ?? false)" />
+                            <label for="chkMembershipAdd" class="mb-0">This is a membership payment service</label>
+                        </div>
+                        @if (ViewModel.NewService.IsForMembership)
+                        {
+                            <div class="mt-2 p-2 rounded small" style="background: rgba(0,180,180,0.1); border: 1px solid rgba(0,180,180,0.3);">
+                                Students who submit a receipt will be linked to their upload in Management Members. Membership is still subject to officer review and approval.
+                            </div>
+                        }
+                    </div>
+                }
+                <div class="form-group mb-3">
+                    <label>Description (Optional)</label>
+                    <textarea class="form-control" rows="2" maxlength="300"
+                              @oninput="e => ViewModel.NewService.Description = e.Value?.ToString() ?? ViewModel.NewService.Description"
+                              placeholder="Short description of the service">@ViewModel.NewService.Description</textarea>
+                    <span class="char-counter @((ViewModel.NewService.Description?.Length ?? 0) >= 270 ? "char-counter-warn" : "")">@(ViewModel.NewService.Description?.Length ?? 0) / 300</span>
+                </div>
+                <div class="form-group mb-3">
+                    <label>Service Image (Optional)</label>
+                    <InputFile OnChange="ViewModel.HandleFileSelectedAsync" class="form-control" accept="image/*" />
+                    @if (!string.IsNullOrEmpty(ViewModel.NewService.ImageUrl))
+                    {
+                        <div class="mt-2 text-center border rounded p-2" style="background: rgba(255,255,255,0.05);">
+                            <img src="@(ViewModel.NewService.ImageUrl.StartsWith("data:") ? ViewModel.NewService.ImageUrl : USJR_COMES_WEBSITE.APIs.ApiEndpoints.ServerBaseUrl + ViewModel.NewService.ImageUrl)" style="max-height: 150px; border-radius: 8px; max-width: 100%;" />
+                        </div>
+                    }
+                </div>
+                <p class="text-muted small">Depending on the Action Type chosen, specific UI functionality will be generated for officers and students processing requests.</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" @onclick="ViewModel.CloseAddServiceModal">Cancel</button>
+                <button class="btn btn-primary theme-button" @onclick="ViewModel.AddServiceAsync">Create Service</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ViewModel.IsEditModalOpen)
+{
+    <div class="modal-overlay" @onclick="ViewModel.CloseEditServiceModal">
+        <div class="modal-card form-modal-card" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Service</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label>Service Title</label>
+                    <input type="text" class="form-control" maxlength="50"
+                           value="@ViewModel.NewService.Name"
+                           @oninput="e => ViewModel.NewService.Name = e.Value?.ToString() ?? ViewModel.NewService.Name"
+                           placeholder="e.g. Printing Service" />
+                    <span class="char-counter @((ViewModel.NewService.Name?.Length ?? 0) >= 45 ? "char-counter-warn" : "")">@(ViewModel.NewService.Name?.Length ?? 0) / 50</span>
+                </div>
+                <div class="form-group mb-3">
+                    <label>Action Type</label>
+                    <select class="form-control" @bind="ViewModel.NewService.ActionType">
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.FileUpload)">1. File Upload & Processing (e.g., Printing)</option>
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Payment)">2. Proof of Payment / Transaction (e.g., Memberships)</option>
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Inventory)">3. Inventory & Variation (e.g., Merch Sales)</option>
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Appointment)">4. Appointment / Schedule (e.g., Consultations)</option>
+                        <option value="@((int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Clearance)">5. Simple Inquiry / Clearance (e.g., Borrowing Items)</option>
+                    </select>
+                </div>
+                @if (ViewModel.NewService.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Payment)
+                {
+                    <div class="form-group mb-3">
+                        <label>Budget Program</label>
+                        <select class="form-control" value="@ViewModel.NewService.BudgetAccountId"
+                                @onchange="e => ViewModel.NewService.BudgetAccountId = e.Value != null && int.TryParse(e.Value.ToString(), out var v) ? (int?)v : null">
+                            <option value="">â€” Select a budget program â€”</option>
+                            @foreach (var acct in _budgetAccounts ?? new())
+                            {
+                                <option value="@acct.Id">@acct.Title</option>
+                            }
+                        </select>
+                        <small class="text-muted">The budget program that will receive this payment.</small>
+                    </div>
+                    <div class="form-group mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="checkbox" id="chkMembershipEdit" class="form-check-input mt-0"
+                                   checked="@ViewModel.NewService.IsForMembership"
+                                   @onchange="e => ViewModel.NewService.IsForMembership = (bool)(e.Value ?? false)" />
+                            <label for="chkMembershipEdit" class="mb-0">This is a membership payment service</label>
+                        </div>
+                        @if (ViewModel.NewService.IsForMembership)
+                        {
+                            <div class="mt-2 p-2 rounded small" style="background: rgba(0,180,180,0.1); border: 1px solid rgba(0,180,180,0.3);">
+                                Students who submit a receipt will be linked to their upload in Management Members. Membership is still subject to officer review and approval.
+                            </div>
+                        }
+                    </div>
+                }
+                <div class="form-group mb-3">
+                    <label>Description (Optional)</label>
+                    <textarea class="form-control" rows="2" maxlength="300"
+                              @oninput="e => ViewModel.NewService.Description = e.Value?.ToString() ?? ViewModel.NewService.Description"
+                              placeholder="Short description of the service">@ViewModel.NewService.Description</textarea>
+                    <span class="char-counter @((ViewModel.NewService.Description?.Length ?? 0) >= 270 ? "char-counter-warn" : "")">@(ViewModel.NewService.Description?.Length ?? 0) / 300</span>
+                </div>
+                <div class="form-group mb-3">
+                    <label>Service Image (Optional)</label>
+                    <InputFile OnChange="ViewModel.HandleFileSelectedAsync" class="form-control" accept="image/*" />
+                    @if (!string.IsNullOrEmpty(ViewModel.NewService.ImageUrl))
+                    {
+                        <div class="mt-2 text-center border rounded p-2" style="background: rgba(255,255,255,0.05);">
+                            <img src="@(ViewModel.NewService.ImageUrl.StartsWith("data:") ? ViewModel.NewService.ImageUrl : USJR_COMES_WEBSITE.APIs.ApiEndpoints.ServerBaseUrl + ViewModel.NewService.ImageUrl)" style="max-height: 150px; border-radius: 8px; max-width: 100%;" />
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" @onclick="ViewModel.CloseEditServiceModal">Cancel</button>
+                <button class="btn btn-primary theme-button" @onclick="ViewModel.UpdateServiceAsync">Update Service</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ViewModel.IsViewerOpen && ViewModel.ViewingRequest != null)
+{
+    var reqData = ViewModel.ViewingRequest.GetDynamicData();
+    var hasAttachment = reqData.TryGetValue("Attachment", out var filename);
+    reqData.TryGetValue("FileData", out var fileData);
+
+    // displaySrc: prefer the server-fetched data URL, then any inline base64 in the response
+    var displaySrc = !string.IsNullOrEmpty(_attachmentDataUrl) ? _attachmentDataUrl
+        : !string.IsNullOrEmpty(fileData) ? fileData
+        : ((filename != null && (filename.StartsWith("data:") || filename.StartsWith("http"))) ? filename : "");
+
+    // Show "no file" only when not loading and nothing was fetched
+    bool missingFileContents = !_attachmentLoading
+        && (string.IsNullOrEmpty(displaySrc) || !string.IsNullOrEmpty(_attachmentFetchError))
+        && !string.IsNullOrEmpty(filename)
+        && !filename.StartsWith("http")
+        && !filename.StartsWith("data:");
+
+    var fn = filename ?? "";
+    bool isPdf = hasAttachment && fn.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
+    bool isDocx = hasAttachment && (fn.EndsWith(".docx", StringComparison.OrdinalIgnoreCase) || fn.EndsWith(".doc", StringComparison.OrdinalIgnoreCase));
+    bool isImg = hasAttachment && (fn.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || fn.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || fn.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || fn.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) || fn.EndsWith(".gif", StringComparison.OrdinalIgnoreCase));
+
+    // Check for receipt/proof image (Payment type)
+    var hasReceiptImage = reqData.TryGetValue("ReceiptImageUrl", out var receiptImageUrl) && !string.IsNullOrEmpty(receiptImageUrl);
+    var receiptFullUrl = hasReceiptImage ? USJR_COMES_WEBSITE.APIs.ApiEndpoints.Files.ToFullUrl(receiptImageUrl!) : "";
+
+    <div class="modal-overlay" @onclick="ViewModel.CloseViewer">
+        <div class="modal-card viewer-modal-card" @onclick:stopPropagation="true">
+            <div class="modal-header d-flex justify-content-between align-items-center">
+                <h3 class="modal-title m-0">Viewing Request: @ViewModel.ViewingRequest.UserName</h3>
+                <button class="btn-close btn-close-white" @onclick="ViewModel.CloseViewer"></button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+
+                <!-- Status Row -->
+                <div class="viewer-status-row mb-3">
+                    <span style="color:#afd94d; font-weight:700;">Status:</span>
+                    <span class="badge @ViewModel.GetStatusClass(ViewModel.ViewingRequest.Status)" style="margin-left:0.5rem; font-size:0.85rem;">@ViewModel.ViewingRequest.Status</span>
+                </div>
+
+                <!-- Details Card -->
+                <div class="viewer-details-card mb-3">
+                    <div class="viewer-details-title">Details</div>
+                    <div class="viewer-details-grid">
+                        @foreach (var item in reqData)
+                        {
+                            if (item.Key != "FileData" && item.Key != "FileApiUrl" && item.Key != "Attachment" && item.Key != "ReceiptImageUrl")
+                            {
+                                <div class="viewer-detail-row">
+                                    <span class="viewer-detail-key">@item.Key</span>
+                                    <span class="viewer-detail-val">@item.Value</span>
+                                </div>
+                            }
+                        }
+                        @if (hasAttachment && !string.IsNullOrEmpty(filename))
+                        {
+                            <div class="viewer-detail-row">
+                                <span class="viewer-detail-key">Attachment</span>
+                                <span class="viewer-detail-val">@filename</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- File Preview (for file-upload type) -->
+                @if (hasAttachment && !string.IsNullOrEmpty(filename))
+                {
+                    <div class="viewer-file-preview">
+                        @if (_attachmentLoading)
+                        {
+                            <div class="viewer-file-missing">
+                                <div class="spinner-border spinner-border-sm text-success" role="status"></div>
+                                <p style="margin-top:0.5rem; color:rgba(255,255,255,0.6);">Loading attachment...</p>
+                            </div>
+                        }
+                        else if (missingFileContents)
+                        {
+                            <div class="viewer-file-missing">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                                @if (!string.IsNullOrEmpty(_attachmentFetchError))
+                                {
+                                    <p style="color:#ff6b6b; font-size:0.8rem;">@_attachmentFetchError</p>
+                                }
+                                else
+                                {
+                                    <p>No physical file attached for "@filename"</p>
+                                }
+                            </div>
+                        }
+                        else if (isPdf)
+                        {
+                            <object data="@displaySrc" type="application/pdf" class="viewer-file-frame">
+                                <iframe src="@displaySrc" class="viewer-file-frame" style="border:none;"></iframe>
+                            </object>
+                        }
+                        else if (isDocx)
+                        {
+                            @if (displaySrc.StartsWith("data:"))
+                            {
+                                <div class="viewer-file-missing">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    <p>Word documents cannot be previewed inline.</p>
+                                    <a href="@displaySrc" download="@filename" class="btn btn-sm btn-outline-theme mt-2">Download @filename</a>
+                                </div>
+                            }
+                            else
+                            {
+                                <iframe src="https://view.officeapps.live.com/op/embed.aspx?src=@(System.Net.WebUtility.UrlEncode(displaySrc))" class="viewer-file-frame" style="border:none;"></iframe>
+                            }
+                        }
+                        else if (isImg)
+                        {
+                            <img src="@displaySrc" class="viewer-img-preview" />
+                        }
+                        else
+                        {
+                            <div class="viewer-file-missing">
+                                <a href="@displaySrc" download="@filename" class="btn btn-sm btn-outline-theme">Download @filename</a>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <!-- Receipt/Proof of Payment image (Payment type) -->
+                @if (hasReceiptImage && !string.IsNullOrEmpty(receiptFullUrl))
+                {
+                    <div class="viewer-file-preview mt-2">
+                        <div class="viewer-details-title mb-2">Proof of Payment</div>
+                        <img src="@receiptFullUrl" class="viewer-img-preview" />
+                    </div>
+                }
+
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" @onclick="ViewModel.CloseViewer">Close View</button>
+                @if (ViewModel.SelectedService != null && ViewModel.ViewingRequest.Status == "Pending")
+                {
+                    @if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.FileUpload)
+                    {
+                        <button class="btn btn-success confirm-action-btn" @onclick="@(async () => { await ViewModel.ChangeRequestStatusAsync(ViewModel.ViewingRequest, "Printed"); ViewModel.CloseViewer(); })">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Confirm Printed
+                        </button>
+                    }
+                    else if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.Payment)
+                    {
+                        <button class="btn btn-success confirm-action-btn" @onclick="@(async () => { await ViewModel.ChangeRequestStatusAsync(ViewModel.ViewingRequest, "Verified"); ViewModel.CloseViewer(); })">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Verify Payment
+                        </button>
+                    }
+                    else if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.Inventory)
+                    {
+                        <button class="btn btn-success confirm-action-btn" @onclick="@(async () => { await ViewModel.ChangeRequestStatusAsync(ViewModel.ViewingRequest, "Completed"); ViewModel.CloseViewer(); })">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Confirm Order
+                        </button>
+                    }
+                    else if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.Appointment)
+                    {
+                        <button class="btn btn-success confirm-action-btn" @onclick="@(async () => { await ViewModel.ChangeRequestStatusAsync(ViewModel.ViewingRequest, "Confirmed"); ViewModel.CloseViewer(); })">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Approve Slot
+                        </button>
+                    }
+                    else if ((USJR_COMES_WEBSITE.ViewModels.ServiceType)ViewModel.SelectedService.ActionType == USJR_COMES_WEBSITE.ViewModels.ServiceType.Clearance)
+                    {
+                        <button class="btn btn-success confirm-action-btn" @onclick="@(async () => { await ViewModel.ChangeRequestStatusAsync(ViewModel.ViewingRequest, "Cleared"); ViewModel.CloseViewer(); })">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Clear Request
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<SuccessPopup IsVisible="ViewModel.ShowSuccess"
+              Message="@ViewModel.SuccessMessage"
+              OnOkClick="ViewModel.HideSuccess" />
+
+@code {
+    private HttpClient Http => HttpClientFactory.CreateClient("general");
+    private bool _mobileDrawerOpen = false;
+
+    private List<BudgetAccountItem>? _budgetAccounts;
+
+    // Viewer attachment state â€” fetched server-side to avoid browser cross-origin issues
+    private string _attachmentDataUrl = "";
+    private bool _attachmentLoading = false;
+    private int _attachmentFetchedForId = -1;
+    private string _attachmentFetchError = "";
+
+    private void SelectService(USJR_COMES_WEBSITE.ViewModels.ServiceOfferedViewModel svc)
+    {
+        ViewModel.SelectService(svc);
+        _mobileDrawerOpen = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        ViewModel.OnChange += HandleViewModelChange;
+        await ViewModel.InitializeAsync();
+        await LoadBudgetAccounts();
+    }
+
+    public void Dispose()
+    {
+        ViewModel.OnChange -= HandleViewModelChange;
+    }
+
+    private void HandleViewModelChange()
+    {
+        if (!ViewModel.IsViewerOpen)
+        {
+            _attachmentDataUrl = "";
+            _attachmentFetchedForId = -1;
+            _attachmentLoading = false;
+            _attachmentFetchError = "";
+        }
+        StateHasChanged();
+
+        if (ViewModel.IsViewerOpen && ViewModel.ViewingRequest != null)
+        {
+            var reqData = ViewModel.ViewingRequest.GetDynamicData();
+            bool hasAttachmentKey = reqData.ContainsKey("Attachment");
+            int requestId = ViewModel.ViewingRequest.Id;
+
+            if (hasAttachmentKey && requestId != _attachmentFetchedForId)
+                _ = FetchAttachmentAsync(requestId, reqData);
+        }
+    }
+
+    private async Task FetchAttachmentAsync(int requestId, Dictionary<string, string> reqData)
+    {
+        _attachmentLoading = true;
+        _attachmentFetchedForId = requestId;
+        _attachmentFetchError = "";
+        await InvokeAsync(StateHasChanged);
+
+        // If the response already contains an inline data URL (injected by backend), use it directly
+        if (reqData.TryGetValue("AttachmentDataUrl", out var inlineDataUrl) && !string.IsNullOrEmpty(inlineDataUrl))
+        {
+            _attachmentDataUrl = inlineDataUrl;
+            _attachmentLoading = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        // Otherwise fetch from the files API
+        try
+        {
+            var url = requestId > 0
+                ? $"api/files/servicerequest/{requestId}"
+                : "";
+
+            if (string.IsNullOrEmpty(url))
+            {
+                _attachmentFetchError = $"Request ID is {requestId} (not saved yet?)";
+                _attachmentDataUrl = "";
+            }
+            else
+            {
+                var response = await Http.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var bytes = await response.Content.ReadAsByteArrayAsync();
+                    var mime = response.Content.Headers.ContentType?.MediaType ?? "image/png";
+                    if (bytes.Length > 0)
+                        _attachmentDataUrl = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+                    else
+                        _attachmentFetchError = $"Server returned 0 bytes (ID={requestId})";
+                }
+                else
+                {
+                    _attachmentFetchError = $"Server returned {(int)response.StatusCode} for request ID {requestId}";
+                    _attachmentDataUrl = "";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _attachmentFetchError = $"Error: {ex.GetType().Name} â€” {ex.Message}";
+            _attachmentDataUrl = "";
+        }
+        _attachmentLoading = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadBudgetAccounts()
+    {
+        try
+        {
+            // Find the current academic year first, then fetch only its Program accounts
+            var years = await Http.GetFromJsonAsync<List<BudgetYearItem>>(ApiEndpoints.Budget.Accounts.Replace("accounts", "years")) ?? new();
+            var currentYearId = years.FirstOrDefault(y => y.IsCurrent)?.Id ?? years.FirstOrDefault()?.Id;
+
+            var url = currentYearId.HasValue
+                ? $"{ApiEndpoints.Budget.Accounts}?yearId={currentYearId}"
+                : ApiEndpoints.Budget.Accounts;
+
+            var all = await Http.GetFromJsonAsync<List<BudgetAccountItem>>(url) ?? new();
+            _budgetAccounts = all.Where(a => a.AccountType == "Program").ToList();
+        }
+        catch { _budgetAccounts = new(); }
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        if (ViewModel.SelectedService == null) return;
+        var csv = ViewModel.GenerateCsv(ViewModel.CsvExportStatus);
+        var statusLabel = ViewModel.CsvExportStatus == "All" ? "All" : ViewModel.CsvExportStatus;
+        var filename = $"{ViewModel.SelectedService.Name}_{statusLabel}_{DateTime.Now:yyyyMMdd}.csv";
+        await JS.InvokeVoidAsync("downloadCsv", filename, csv);
+    }
+
+    private class BudgetAccountItem
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string AccountType { get; set; } = string.Empty;
+    }
+
+    private class BudgetYearItem
+    {
+        public int Id { get; set; }
+        public bool IsCurrent { get; set; }
+    }
+}

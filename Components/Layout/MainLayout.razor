@@ -1,0 +1,21 @@
+﻿@inherits LayoutComponentBase
+@inject UserStateService UserState
+@inject IOfflineSyncService OfflineSync
+@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.Components.Shared
+
+<SiteSettingsApplier />
+<OfflineBanner />
+
+@Body
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        // Restore persisted login session from localStorage
+        await UserState.TryRestoreSessionAsync();
+        // Initialize offline sync service (reads queue + registers online/offline events)
+        await OfflineSync.InitializeAsync();
+    }
+}

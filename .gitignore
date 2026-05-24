@@ -1,0 +1,26 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+**/Properties/launchSettings.json
+
+## Environment & secrets
+appsettings.Production.json
+.env
+.env.*
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Claude Code internal
+.claude/

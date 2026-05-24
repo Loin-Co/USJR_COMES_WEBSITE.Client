@@ -1,0 +1,284 @@
+@implements IDisposable
+@inject UserViewModel ViewModel
+@inject IMembersService MembersService
+@inject IHttpClientFactory HttpClientFactory
+@inject IOfflineSyncService OfflineSync
+@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.APIs
+@using USJR_COMES_WEBSITE.Components.Shared
+
+@if (!ViewModel.IsLoggedIn)
+{
+    <a href="/login" class="user-login-btn">Log In</a>
+}
+else
+{
+    <div class="user-card-wrapper">
+        <button class="user-card-trigger" @onclick="TogglePanel" title="Account">
+            @if (ViewModel.ProfileImageSrc != null)
+            {
+                <img class="user-card-trigger-img" src="@ViewModel.ProfileImageSrc" alt="Profile" />
+            }
+            else
+            {
+                <svg class="user-card-icon-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-label="User profile">
+                    <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zm0 2c-3.337 0-10 1.676-10 5v2h20v-2c0-3.324-6.663-5-10-5z" />
+                </svg>
+            }
+        </button>
+
+        @if (panelOpen)
+        {
+            <div class="user-card-panel">
+                <div class="user-card-top">
+                    <label class="user-card-avatar" for="avatarFileInput" title="Click to upload photo">
+                        @if (ViewModel.ProfileImageSrc != null)
+                        {
+                            <img class="user-card-avatar-img" src="@ViewModel.ProfileImageSrc" alt="Profile" />
+                        }
+                        else
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5zm0 2c-3.337 0-10 1.676-10 5v2h20v-2c0-3.324-6.663-5-10-5z" />
+                            </svg>
+                        }
+                        <span class="user-card-avatar-overlay">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        </span>
+                    </label>
+                    <InputFile id="avatarFileInput" accept="image/*" OnChange="OnAvatarSelected" style="display:none;" />
+                    <div class="user-card-info">
+                        <span class="user-card-name">@ViewModel.FullName</span>
+                        <span class="user-card-detail"><strong>ID:</strong> @ViewModel.UserSchoolId</span>
+                        <span class="user-card-detail"><strong>Email:</strong> @ViewModel.UserEmail</span>
+                        <span class="user-card-role">@ViewModel.AccountRole</span>
+                        @if (_loadingStatus)
+                        {
+                            <div style="height:20px;border-radius:10px;background:rgba(255,255,255,0.07);width:120px;margin-top:6px;animation:skeleton-pulse 1.4s ease-in-out infinite;"></div>
+                        }
+                        else if (_currentYear != null)
+                        {
+                            <div class="user-card-year-row">
+                                <span class="user-card-year-label">S.Y. @_currentYear</span>
+                                @if (_isOfficerOfYear)
+                                {
+                                    <span class="user-card-year-badge officer">Officer</span>
+                                }
+                                else if (_isYearMember)
+                                {
+                                    <span class="user-card-year-badge member">Member</span>
+                                }
+                                else
+                                {
+                                    <span class="user-card-year-badge nonmember">Non-Member</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(_avatarError))
+                {
+                    <div class="user-card-avatar-error">@_avatarError</div>
+                }
+                <div class="user-card-sync-row">
+                    <SyncStatusBadge />
+                </div>
+                <button class="user-card-logout" style="margin-bottom:4px;background:transparent;border:1px solid var(--border,#374151);color:var(--text-primary,#e0e0e0);font-size:12px;"
+                        @onclick="PromptChangePassword">
+                    Change Password
+                </button>
+                <button class="user-card-logout" @onclick="PromptLogout">Logout</button>
+            </div>
+        }
+    </div>
+
+    <USJR_COMES_WEBSITE.Components.Shared.ConfirmationPopup
+        IsVisible="showLogoutConfirmation"
+        Title="Log Out"
+        Message="Are you sure you want to log out?"
+        OnOkClick="ConfirmLogout"
+        OnCancelClick="CancelLogout" />
+
+    <USJR_COMES_WEBSITE.Components.Shared.ConfirmationPopup
+        IsVisible="_showChangePasswordConfirm"
+        Title="Change Password"
+        Message="A password reset link will be sent to your school email. Continue?"
+        OnOkClick="ConfirmChangePassword"
+        OnCancelClick="CancelChangePassword" />
+
+    @if (_showChangePasswordResult)
+    {
+        <div class="popup-overlay" @onclick="CloseChangePasswordResult">
+            <div class="popup-card" style="text-align:center;" @onclick:stopPropagation="true">
+                @if (_changePasswordOk)
+                {
+                    <div class="popup-icon-wrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6ed42a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                    </div>
+                    <p class="popup-success-title">Email Sent!</p>
+                    <p class="popup-body-text">A password reset link has been sent to your school email. Check your inbox.</p>
+                }
+                else
+                {
+                    <div class="popup-icon-wrap" style="background-color:rgba(239,68,68,0.12);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                    </div>
+                    <p class="popup-success-title" style="color:#ef4444;">Failed to Send</p>
+                    <p class="popup-body-text">@_changePasswordMsg</p>
+                }
+                <button class="popup-btn-primary-full" @onclick="CloseChangePasswordResult">OK</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private HttpClient Http => HttpClientFactory.CreateClient("general");
+    private bool panelOpen;
+    private bool showLogoutConfirmation;
+    private bool _showChangePasswordConfirm;
+    private bool _showChangePasswordResult;
+    private string _avatarError = "";
+    private string? _currentYear;
+    private bool _isYearMember;
+    private bool _isOfficerOfYear;
+    private bool _loadingStatus;
+    private string _changePasswordMsg = "";
+    private bool _changePasswordOk;
+
+    protected override void OnInitialized()
+    {
+        ViewModel.SubscribeToChanges(OnUserChanged);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCurrentStatus();
+    }
+
+    private void OnUserChanged()
+    {
+        _ = LoadCurrentStatusAndRefresh();
+    }
+
+    private async Task LoadCurrentStatusAndRefresh()
+    {
+        try
+        {
+            await LoadCurrentStatus();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch { }
+    }
+
+    private async Task LoadCurrentStatus()
+    {
+        var schoolId = ViewModel.UserSchoolId;
+        if (string.IsNullOrEmpty(schoolId)) { _currentYear = null; return; }
+        _loadingStatus = true;
+        await InvokeAsync(StateHasChanged);
+        (_currentYear, _isYearMember, _isOfficerOfYear) = await MembersService.GetCurrentStatusAsync(schoolId);
+        _loadingStatus = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void TogglePanelAsync()
+    {
+        panelOpen = !panelOpen;
+        if (panelOpen) _ = LoadCurrentStatus();
+    }
+
+    private void TogglePanel() => TogglePanelAsync();
+
+    private async Task OnAvatarSelected(InputFileChangeEventArgs e)
+    {
+        _avatarError = "";
+        var file = e.File;
+
+        if (file.Size > 5 * 1024 * 1024)
+        {
+            _avatarError = "Image must be smaller than 5 MB.";
+            return;
+        }
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            await ViewModel.UploadAvatarAsync(base64, file.ContentType);
+        }
+        catch
+        {
+            _avatarError = "Failed to upload image. Please try again.";
+        }
+    }
+
+    private void PromptChangePassword()
+    {
+        panelOpen = false;
+        _showChangePasswordConfirm = true;
+    }
+
+    private async Task ConfirmChangePassword()
+    {
+        _showChangePasswordConfirm = false;
+        try
+        {
+            var email = ViewModel.UserEmail;
+            var resp = await Http.PostAsJsonAsync(ApiEndpoints.Users.RequestPasswordReset, new { email });
+            _changePasswordOk = resp.IsSuccessStatusCode;
+            if (!resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+                _changePasswordMsg = body.Length < 300 ? body : "Could not send reset email. Check backend logs.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _changePasswordOk = false;
+            _changePasswordMsg = ex.Message;
+        }
+        _showChangePasswordResult = true;
+    }
+
+    private void CancelChangePassword()
+    {
+        _showChangePasswordConfirm = false;
+    }
+
+    private void CloseChangePasswordResult()
+    {
+        _showChangePasswordResult = false;
+    }
+
+    private void PromptLogout()
+    {
+        panelOpen = false;
+        showLogoutConfirmation = true;
+    }
+
+    private void ConfirmLogout()
+    {
+        showLogoutConfirmation = false;
+        ViewModel.Logout();
+    }
+
+    private void CancelLogout()
+    {
+        showLogoutConfirmation = false;
+    }
+
+    public void Dispose()
+    {
+        ViewModel.UnsubscribeFromChanges(OnUserChanged);
+    }
+}

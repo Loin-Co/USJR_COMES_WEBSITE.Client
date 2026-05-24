@@ -1,0 +1,73 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.APIs
+@inject ISiteSettingsService SettingsService
+@inject IJSRuntime JS
+@implements IDisposable
+
+@* Renders nothing â€” loads site settings from API and applies them via JS.
+   Post-navigation re-apply is handled by the blazor:navigated JS event in bg-customizer.js,
+   which fires AFTER Blazor patches the DOM (LocationChanged fires before, wiping inline styles). *@
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        SettingsService.OnChange += OnSettingsChanged;
+        await SettingsService.LoadAsync();
+        await ApplyAsync();
+    }
+
+    private void OnSettingsChanged()
+    {
+        InvokeAsync(async () => await ApplyAsync());
+    }
+
+    private async Task ApplyAsync()
+    {
+        var s = SettingsService.Current;
+        try
+        {
+            // Cache computed values to avoid recalculation
+            var bgSize = string.IsNullOrWhiteSpace(s.BackgroundCustomSize)
+                ? (s.BackgroundSize ?? "cover")
+                : s.BackgroundCustomSize;
+            var bgPos = s.BackgroundPosition ?? "center";
+            var bgOpacity = s.BackgroundOpacity.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var bgUrl = ApiEndpoints.SiteSettings.BackgroundImage + "?v=" + s.SavedAt;
+
+            // Batch all JS interop calls in parallel for better performance
+            await Task.WhenAll(
+                JS.InvokeVoidAsync("bgCustomizer.applyFromSettings", new
+                {
+                    backgroundType       = s.BackgroundType,
+                    backgroundValue      = s.BackgroundValue,
+                    backgroundOpacity    = s.BackgroundOpacity,
+                    backgroundSize       = bgSize,
+                    backgroundCustomSize = s.BackgroundCustomSize,
+                    backgroundPosition   = bgPos,
+                    navbarColor          = s.NavbarColor,
+                    hasBackgroundImage   = s.HasBackgroundImage,
+                    backgroundImageUrl   = ApiEndpoints.SiteSettings.BackgroundImage,
+                    savedAt              = s.SavedAt,
+                    backgroundPattern    = s.BackgroundPattern,
+                }).AsTask(),
+                JS.InvokeVoidAsync("bgCustomizer.syncServerLayer",
+                    s.HasBackgroundImage, bgUrl, bgSize, bgPos, bgOpacity).AsTask(),
+                JS.InvokeVoidAsync("themeCustomizer.apply", new
+                {
+                    themeAccent       = s.ThemeAccent,
+                    themeAccentBright = s.ThemeAccentBright,
+                    themeTextColor    = s.ThemeTextColor,
+                    themeFontFamily   = s.ThemeFontFamily,
+                    themeFontSize     = s.ThemeFontSize,
+                }).AsTask()
+            );
+        }
+        catch { }
+    }
+
+    public void Dispose()
+    {
+        SettingsService.OnChange -= OnSettingsChanged;
+    }
+}

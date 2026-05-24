@@ -1,0 +1,369 @@
+﻿@inject USJR_COMES_WEBSITE.Services.IServicesOfferedService ServicesOfferedService
+@inject USJR_COMES_WEBSITE.Services.UserStateService UserState
+@inject NavigationManager NavManager
+
+@if (IsVisible && Service != null)
+{
+    <div class="scd-overlay" @onclick="HandleOverlayClick">
+        <div class="scd-modal form-modal-card" @onclick:stopPropagation="true">
+            @if (!string.IsNullOrEmpty(Service.ImageUrl))
+            {
+                <div class="scd-image" style="background-image: url('@(Service.ImageUrl.StartsWith("data:") ? Service.ImageUrl : USJR_COMES_WEBSITE.APIs.ApiEndpoints.ServerBaseUrl + Service.ImageUrl)'); background-size: contain; background-repeat: no-repeat; background-position: center; border-radius: 8px 0 0 8px; background-color: #ffffff;"></div>
+            }
+            <div class="scd-content p-4">
+                <h2 class="scd-name mb-3" style="color: #ffffff; font-weight: 700;">@Service.Name</h2>
+                <p class="scd-description text-light opacity-75 mb-4">
+                    @Service.Description
+                </p>
+
+                <div class="scd-dynamic-form">
+                    @if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.FileUpload)
+                    {
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Upload Document (PDF/DOCX)</label>
+                            <InputFile OnChange="HandleFileSelected" class="form-control" accept=".pdf,.docx,.doc" />
+                        </div>
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Color Mode</label>
+                            <select class="form-control" @bind="ColorMode">
+                                <option value="B&W">Black & White</option>
+                                <option value="Color">Color</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Number of Copies</label>
+                            <input type="number" class="form-control" min="1" @bind="Copies" />
+                        </div>
+                    }
+                    else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Payment)
+                    {
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Reference Number</label>
+                            <input type="text" class="form-control" placeholder="e.g., GCASH-123456789" @bind="RefNumber" />
+                        </div>
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Amount Paid</label>
+                            <input type="number" class="form-control" step="0.01" placeholder="₱ 0.00" @bind="AmountPaid" />
+                        </div>
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Receipt / Proof of Payment <span style="color:#ff6b6b;">*</span></label>
+                            <InputFile OnChange="HandleReceiptSelected" class="form-control" accept="image/*" />
+                            @if (_receiptLoading)
+                            {
+                                <div class="mt-2 text-center border rounded p-2" style="background: rgba(255,255,255,0.07); border-radius: 8px;">
+                                    <div class="spinner-border spinner-border-sm text-success" role="status"></div>
+                                    <div style="font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 0.3rem;">Loading image, please wait...</div>
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(ReceiptFileName) && !string.IsNullOrEmpty(ReceiptFileData))
+                            {
+                                <div class="mt-2 text-center border rounded p-2" style="background: rgba(255,255,255,0.07); border-radius: 8px;">
+                                    <img src="@ReceiptFileData" style="max-height: 160px; max-width: 100%; border-radius: 6px; object-fit: contain;" />
+                                    <div style="font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 0.3rem;">@ReceiptFileName</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Inventory)
+                    {
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Variation / Size</label>
+                            <input type="text" class="form-control" placeholder="e.g., Large, Green" @bind="VariationSize" />
+                        </div>
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Quantity</label>
+                            <input type="number" class="form-control" min="1" @bind="Quantity" />
+                        </div>
+                    }
+                    else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Appointment)
+                    {
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Preferred Date & Time</label>
+                            <input type="datetime-local" class="form-control" @bind="ApptDate" />
+                        </div>
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Purpose of Appointment</label>
+                            <textarea class="form-control" rows="2" placeholder="Briefly describe your concern..." @bind="ApptPurpose"></textarea>
+                        </div>
+                    }
+                    else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Clearance)
+                    {
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">School ID</label>
+                            <input type="text" class="form-control" placeholder="e.g., 20210000" @bind="SchoolIdString" />
+                        </div>
+                        <div class="form-group mb-3">
+                            <label style="color: #ffffff; font-weight: 600;">Item Name (If Borrowing/Returning)</label>
+                            <input type="text" class="form-control" placeholder="e.g., Arduino Uno R3" @bind="ItemNameString" />
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 align-items-center">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <span class="me-auto" style="color: #ff4d4d; font-weight: 600; font-size: 0.9rem;">@errorMessage</span>
+                    }
+                    <button class="btn btn-secondary" style="background-color: rgba(255,255,255,0.15); color: #fff;" @onclick="HandleOverlayClick">Cancel</button>
+                    <button class="btn" style="background-color: #0b1f20; color: white; border: 1px solid rgba(255,255,255,0.2);" @onclick:preventDefault @onclick="PreSubmit" disabled="@(_receiptLoading || _fileLoading)">
+                        @if (_receiptLoading || _fileLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            <span>Uploading...</span>
+                        }
+                        else
+                        {
+                            <span>Submit Request</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showLoginPrompt)
+{
+    <USJR_COMES_WEBSITE.Components.Shared.ConfirmationPopup 
+        IsVisible="true"
+        Title="Login Required"
+        Message="You need to be logged in to submit a request. Would you like to login now?"
+        OnOkClick="RedirectToLogin"
+        OnCancelClick="() => { showLoginPrompt = false; }" />
+}
+
+@if (showConfirmation)
+{
+    <USJR_COMES_WEBSITE.Components.Shared.ConfirmationPopup 
+        IsVisible="true"
+        Title="Confirm Request"
+        Message="Are you sure you want to submit this request?"
+        OnOkClick="SubmitData"
+        OnCancelClick="() => { showConfirmation = false; }" />
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public USJR_COMES_WEBSITE.ViewModels.ServiceOfferedViewModel? Service { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool showConfirmation = false;
+    private bool showLoginPrompt = false;
+    private string errorMessage = "";
+
+    // Field Variables
+    private string FileName = "";
+    private string FileData = "";
+    private bool _fileLoading = false;
+    private string ColorMode = "B&W";
+    private int Copies = 1;
+    private string RefNumber = "";
+    private decimal AmountPaid = 0;
+    private string ReceiptFileName = "";
+    private string ReceiptFileData = "";
+    private bool _receiptLoading = false;
+    private string VariationSize = "";
+    private int Quantity = 1;
+    private DateTime ApptDate = DateTime.Now;
+    private string ApptPurpose = "";
+    private string SchoolIdString = "";
+    private string ItemNameString = "";
+
+    private bool _prevIsVisible;
+
+    protected override void OnParametersSet()
+    {
+        // Only reset form state when the modal transitions from closed → open,
+        // not on every re-render while it's already open (e.g. parent StateHasChanged calls).
+        if (IsVisible && !_prevIsVisible)
+        {
+            showConfirmation = false;
+            showLoginPrompt = false;
+            errorMessage = "";
+            ReceiptFileName = "";
+            ReceiptFileData = "";
+            _receiptLoading = false;
+            FileName = "";
+            FileData = "";
+            _fileLoading = false;
+            RefNumber = "";
+            AmountPaid = 0;
+            ColorMode = "B&W";
+            Copies = 1;
+        }
+        _prevIsVisible = IsVisible;
+    }
+
+    private async Task HandleOverlayClick()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task HandleReceiptSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            ReceiptFileName = file.Name;
+            ReceiptFileData = "";
+            _receiptLoading = true;
+            errorMessage = "";
+            StateHasChanged();
+            try
+            {
+                using var stream = file.OpenReadStream(10 * 1024 * 1024); // 10MB
+                using var ms = new System.IO.MemoryStream();
+                await stream.CopyToAsync(ms);
+                ReceiptFileData = $"data:{file.ContentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+            }
+            catch
+            {
+                errorMessage = "Receipt image is too large or invalid. Maximum 10MB allowed.";
+                ReceiptFileName = "";
+                ReceiptFileData = "";
+            }
+            finally
+            {
+                _receiptLoading = false;
+            }
+        }
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            FileName = file.Name;
+            FileData = "";
+            _fileLoading = true;
+            errorMessage = "";
+            StateHasChanged();
+            try
+            {
+                using var stream = file.OpenReadStream(15 * 1024 * 1024); // 15MB limit
+                using var ms = new System.IO.MemoryStream();
+                await stream.CopyToAsync(ms);
+                var bytes = ms.ToArray();
+                FileData = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
+            }
+            catch
+            {
+                errorMessage = "Selected file is too large or invalid. Maximum 15MB allowed.";
+                FileName = "";
+                FileData = "";
+            }
+            finally
+            {
+                _fileLoading = false;
+            }
+        }
+    }
+
+    private void PreSubmit()
+    {
+        errorMessage = "";
+
+        if (UserState.CurrentUser == null)
+        {
+            showLoginPrompt = true;
+            return;
+        }
+
+        if (Service == null) return;
+
+        bool isValid = true;
+
+        if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.FileUpload)
+        {
+            if (_fileLoading) { errorMessage = "Please wait — file is still uploading."; return; }
+            if (string.IsNullOrWhiteSpace(FileName) || string.IsNullOrEmpty(FileData) || Copies <= 0) isValid = false;
+        }
+        else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Payment)
+        {
+            if (_receiptLoading) { errorMessage = "Please wait — receipt image is still uploading."; return; }
+            if (string.IsNullOrWhiteSpace(RefNumber) || AmountPaid <= 0 || string.IsNullOrEmpty(ReceiptFileName) || string.IsNullOrEmpty(ReceiptFileData)) isValid = false;
+        }
+        else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Inventory)
+        {
+            if (string.IsNullOrWhiteSpace(VariationSize) || Quantity <= 0) isValid = false;
+        }
+        else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Appointment)
+        {
+            if (string.IsNullOrWhiteSpace(ApptPurpose)) isValid = false;
+        }
+        else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Clearance)
+        {
+            if (string.IsNullOrWhiteSpace(SchoolIdString) || string.IsNullOrWhiteSpace(ItemNameString)) isValid = false;
+        }
+
+        if (!isValid)
+        {
+            errorMessage = "Please fill in all required fields properly.";
+            return;
+        }
+
+        showConfirmation = true;
+    }
+
+    private void RedirectToLogin()
+    {
+        showLoginPrompt = false;
+        NavManager.NavigateTo("/login");
+    }
+
+    private async Task SubmitData()
+    {
+        if (Service == null) return;
+
+        var data = new Dictionary<string, string>();
+
+        if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.FileUpload)
+        {
+            data.Add("Attachment", FileName);
+            if (!string.IsNullOrEmpty(FileData))
+            {
+                data.Add("FileData", FileData);
+            }
+            data.Add("Color", ColorMode);
+            data.Add("Copies", Copies.ToString());
+        }
+        else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Payment)
+        {
+            data.Add("Ref", RefNumber);
+            data.Add("Cost", $"₱{AmountPaid:0.00}");
+            data.Add("Amount", AmountPaid.ToString("0.00"));
+            data.Add("Attachment", ReceiptFileName);
+            if (!string.IsNullOrEmpty(ReceiptFileData))
+                data.Add("FileData", ReceiptFileData);
+        }
+        else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Inventory)
+        {
+            data.Add("Variation", VariationSize);
+            data.Add("Qty", Quantity.ToString());
+        }
+        else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Appointment)
+        {
+            data.Add("Date", ApptDate.ToString("MMM dd, yyyy HH:mm"));
+            data.Add("Purpose", ApptPurpose);
+        }
+        else if (Service.ActionType == (int)USJR_COMES_WEBSITE.ViewModels.ServiceType.Clearance)
+        {
+            data.Add("ID", SchoolIdString);
+            data.Add("Item", ItemNameString);
+        }
+
+        var req = new USJR_COMES_WEBSITE.ViewModels.ServiceRequest
+        {
+            ServiceId = Service.Id,
+            UserName = UserState.CurrentUser?.FirstName + " " + UserState.CurrentUser?.LastName ?? "Current User",
+            Status = "Pending",
+            DynamicDataJson = System.Text.Json.JsonSerializer.Serialize(data)
+        };
+
+        await ServicesOfferedService.CreateServiceRequestAsync(req);
+
+        showConfirmation = false;
+        await OnClose.InvokeAsync();
+    }
+}

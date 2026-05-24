@@ -1,0 +1,28 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@inject ISiteSettingsService SiteSettings
+@implements IDisposable
+
+<div class="robot-card">
+    <div class="robot-image-wrapper">
+        <img src="images/robot.svg" alt="CpES Robot" class="robot-img" />
+        <span class="adelante-overlay">@SiteSettings.Current.RobotAdelanteText</span>
+    </div>
+    <div class="robot-society-strip">
+        @SiteSettings.Current.RobotSocietyText
+    </div>
+    <div class="robot-info">
+        <span class="cpes-text">@SiteSettings.Current.RobotAbbreviation</span>
+        <span class="cpes-desc">@((MarkupString)SiteSettings.Current.RobotTagline.Replace("\n", "<br />"))</span>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        SiteSettings.OnChange += StateHasChanged;
+        if (!SiteSettings.IsLoaded)
+            await SiteSettings.LoadAsync();
+    }
+
+    public void Dispose() => SiteSettings.OnChange -= StateHasChanged;
+}

@@ -1,0 +1,34 @@
+﻿@inject USJR_COMES_WEBSITE.Services.IHomeService HomeService
+@using USJR_COMES_WEBSITE.Models
+
+<div class="headline-wrapper">
+    <div class="headline-label">
+        <span class="headline-dot">&#9679;</span>
+        <span class="headline-text">NEWS HEADLINE</span>
+    </div>
+    <div class="headline-ticker">
+        <div class="ticker-track">
+            @if (headlines == null || !headlines.Any())
+            {
+                <span style="font-size: 0.8em; color: gray;">no data can be extracted</span>
+            }
+            else
+            {
+                @foreach (var h in headlines)
+                {
+                    <span class="ticker-item">@h.HeadlineName</span>
+                    <span class="ticker-sep">◆</span>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<USJR_COMES_WEBSITE.Models.Headline>? headlines;
+
+    protected override async Task OnInitializedAsync()
+    {
+        headlines = await HomeService.GetHeadlinesAsync();
+    }
+}

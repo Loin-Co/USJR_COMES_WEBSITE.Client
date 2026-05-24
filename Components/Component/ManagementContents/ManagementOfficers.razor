@@ -1,0 +1,742 @@
+﻿@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.APIs
+@inject IOfficersService OfficersService
+@inject IMembersService MembersService
+@inject UserStateService UserState
+
+<div class="mgt-officers">
+
+    <!-- Header -->
+    <div class="mgt-header">
+        <div class="mgt-header-left">
+            <h2 class="mgt-title">Officers Management</h2>
+            <span class="mgt-subtitle">Manage officers per school year</span>
+            @{
+                var _currentAyObj = _yearObjects.Values.FirstOrDefault(y => y.IsCurrent);
+            }
+            @if (_currentAyObj != null)
+            {
+                <span class="current-ay-badge">
+                    Current: S.Y. @_currentAyObj.Label@(!string.IsNullOrEmpty(_currentAyObj.CurrentSemester) ? $" â€” {_currentAyObj.CurrentSemester}" : "")
+                </span>
+            }
+        </div>
+        @if (CanEdit)
+        {
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button class="btn-set-current-ay" @onclick="OpenSetCurrentAyModal" disabled="@(_yearObjects.Count == 0)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Set Current A.Y.
+                </button>
+                <button class="btn-add-sy" @onclick="OpenAddSyModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Add S.Y.
+                </button>
+            </div>
+        }
+    </div>
+
+    @if (_loading)
+    {
+        <SkeletonOfficerMgmt Count="4" />
+    }
+    else if (_years.Count == 0)
+    {
+        <div class="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" class="empty-state-icon"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <p>No academic years yet.</p>
+            <p class="empty-state-hint">Click <strong>+ Add S.Y.</strong> to get started.</p>
+        </div>
+    }
+    else
+    {
+        <!-- S.Y. Tab Bar -->
+        <div class="sy-tabs">
+            @foreach (var yr in _years)
+            {
+                <button class="sy-tab @(yr == _selectedYear ? "active" : "")" @onclick="() => SelectYear(yr)">
+                    S.Y. @yr
+                </button>
+            }
+        </div>
+
+        <!-- Officers Panel -->
+        <div class="officers-panel">
+            <div class="panel-header">
+                <div class="panel-header-left">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="panel-header-icon"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span class="panel-year">S.Y. @_selectedYear</span>
+                    @if (SelectedYearObj?.IsCurrent == true)
+                    {
+                        <span class="officer-count" style="background:rgba(34,197,94,.15);color:#22c55e;">Current</span>
+                    }
+                    @if (_currentOfficers.Count > 0)
+                    {
+                        <span class="officer-count">@_currentOfficers.Count officer@(_currentOfficers.Count != 1 ? "s" : "")</span>
+                    }
+                </div>
+                @if (CanEdit)
+                {
+                    <div style="display:flex;gap:8px;">
+                        @if (SelectedYearObj != null && !SelectedYearObj.IsCurrent)
+                        {
+                            <button class="btn-add-officer"
+                                    @onclick="OpenSetCurrentYearModal">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Set as Current
+                            </button>
+                        }
+                        <button class="btn-add-officer" @onclick="OpenAddOfficerModal">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Add Officer
+                        </button>
+                    </div>
+                }
+            </div>
+
+            @if (_loadingOfficers)
+            {
+                <SkeletonOfficerMgmt Count="4" />
+            }
+            else if (_currentOfficers.Count == 0)
+            {
+                <div class="panel-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" class="panel-empty-icon"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <p>No officers for this year yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="officer-grid">
+                    @foreach (var officer in _currentOfficers)
+                    {
+                        <div class="officer-card">
+                            <div class="officer-card-photo">
+                                @if (!string.IsNullOrEmpty(officer.ImageUrl))
+                                {
+                                    <img src="@ApiEndpoints.Files.ToFullUrl(officer.ImageUrl)" alt="@officer.Name" class="officer-photo" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <div class="officer-photo-placeholder">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    </div>
+                                }
+                            </div>
+                            <div class="officer-card-body">
+                                <div class="officer-name">@officer.Name</div>
+                                <div class="officer-position">@officer.Position</div>
+                                @if (!string.IsNullOrEmpty(officer.Quote))
+                                {
+                                    <div class="officer-quote">"@officer.Quote"</div>
+                                }
+                            </div>
+                            @if (CanEdit)
+                            {
+                                <div class="officer-card-actions">
+                                    <button class="btn-icon btn-edit" @onclick="() => OpenEditOfficerModal(officer)" title="Edit">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                    </button>
+                                    <button class="btn-icon btn-del" @onclick="() => ConfirmDelete(officer)" title="Delete">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Add S.Y. Modal -->
+@if (_addSyOpen)
+{
+    <div class="mo-overlay" @onclick="CloseAllModals">
+        <div class="mo-card" @onclick:stopPropagation="true">
+            <div class="mo-header">
+                <h3 class="mo-title">Add New School Year</h3>
+            </div>
+            <div class="mo-body">
+                <label class="mo-label">School Year (S.Y.)</label>
+                <input class="mo-input" type="text" placeholder="e.g. 2024-2025" @bind="_newSy" />
+                @if (!string.IsNullOrEmpty(_modalError))
+                {
+                    <div class="mo-error">@_modalError</div>
+                }
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
+                <button class="btn-save" @onclick="AddSy">Add S.Y.</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Add / Edit Officer Modal -->
+@if (_officerModalOpen)
+{
+    <div class="mo-overlay" @onclick="CloseAllModals">
+        <div class="mo-card mo-card-wide" @onclick:stopPropagation="true">
+            <div class="mo-header">
+                <h3 class="mo-title">@(_editMode ? "Edit Officer" : "Add Officer")</h3>
+            </div>
+            <div class="mo-body">
+                <!-- Photo upload row -->
+                <div class="photo-row">
+                    <div class="photo-preview-wrap">
+                        @if (!string.IsNullOrEmpty(_photoPreview))
+                        {
+                            <img src="@_photoPreview" alt="Preview" class="photo-preview-img" />
+                        }
+                        else if (!string.IsNullOrEmpty(_form.ImageUrl))
+                        {
+                            <img src="@ApiEndpoints.Files.ToFullUrl(_form.ImageUrl)" alt="Current" class="photo-preview-img" />
+                        }
+                        else
+                        {
+                            <div class="photo-placeholder">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            </div>
+                        }
+                    </div>
+                    <div class="photo-actions">
+                        <InputFile OnChange="OnPhotoSelected" accept="image/*" id="officer-photo-input" />
+                        <label for="officer-photo-input" class="btn-upload">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Upload Photo
+                        </label>
+                        @if (!string.IsNullOrEmpty(_photoPreview))
+                        {
+                            <button class="btn-remove" @onclick="ClearPhoto">Remove</button>
+                        }
+                        <p class="photo-hint">JPG, PNG, WEBP â€” max 5 MB</p>
+                    </div>
+                </div>
+
+                <!-- School ID Lookup -->
+                <div class="mo-field">
+                    <label class="mo-label">School ID <span class="required">*</span> <span class="mo-label-hint">(links to system user account)</span></label>
+                    <div class="school-id-row">
+                        <input class="mo-input" type="text" placeholder="e.g. 2022000760"
+                               value="@_form.SchoolId"
+                               @oninput="OnSchoolIdInput" />
+                        <button class="btn-verify" @onclick="VerifySchoolId"
+                                disabled="@(_verifying || string.IsNullOrWhiteSpace(_form.SchoolId))">
+                            @(_verifying ? "Verifyingâ€¦" : "Verify")
+                        </button>
+                    </div>
+                    @if (_schoolIdNotFound)
+                    {
+                        <div class="school-id-error">School ID not found. Please check and try again.</div>
+                    }
+                    @if (_verifiedUser != null)
+                    {
+                        <div class="school-id-verified">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            <div class="school-id-verified-info">
+                                <span class="school-id-verified-name">@_verifiedUser.FullName</span>
+                                <span class="school-id-verified-email">@_verifiedUser.SchoolEmail</span>
+                            </div>
+                        </div>
+                        @if (_memberCheckWarning)
+                        {
+                            <div style="margin-top:8px;padding:8px 12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:12px;color:#f59e0b;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:4px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                This student is not yet a member for S.Y. @_selectedYear. They must be a member before being assigned as an officer.
+                            </div>
+                        }
+                    }
+                </div>
+
+                <div class="mo-field">
+                    <label class="mo-label">Full Name <span class="required">*</span></label>
+                    <input class="mo-input" type="text" placeholder="e.g. Juan Dela Cruz" @bind="_form.Name" />
+                </div>
+                <div class="mo-field">
+                    <label class="mo-label">Position <span class="required">*</span></label>
+                    <input class="mo-input" type="text" placeholder="e.g. President" @bind="_form.Position" />
+                </div>
+                <div class="mo-field">
+                    <label class="mo-label">School Year <span class="required">*</span></label>
+                    <input class="mo-input" type="text" placeholder="e.g. 2024-2025" @bind="_form.AcademicYear" />
+                </div>
+                <div class="mo-field">
+                    <label class="mo-label">Quote / Message</label>
+                    <textarea class="mo-textarea" rows="3" placeholder="Officer's personal quoteâ€¦" @bind="_form.Quote"></textarea>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_modalError))
+                {
+                    <div class="mo-error">@_modalError</div>
+                }
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
+                <button class="btn-save" @onclick="SaveOfficer" disabled="@(_saving || !CanSave)">
+                    @(_saving ? "Savingâ€¦" : (_editMode ? "Update Officer" : "Add Officer"))
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Set Current Year Modal -->
+@if (_setCurrentYearOpen)
+{
+    <div class="mo-overlay" @onclick="CloseAllModals">
+        <div class="mo-card mo-card-sm" @onclick:stopPropagation="true">
+            <div class="mo-header">
+                <h3 class="mo-title">Set as Current Year</h3>
+            </div>
+            <div class="mo-body">
+                <p style="margin:0 0 16px;color:var(--text-muted,#9ca3af);">
+                    Set <strong style="color:var(--text-primary,#e0e0e0);">S.Y. @_selectedYear</strong> as the active academic year.
+                </p>
+                <label class="mo-label">Semester <span class="required">*</span></label>
+                <select class="mo-input" @bind="_setCurrentYearSemester">
+                    <option value="">-- Select Semester --</option>
+                    <option value="1st Semester">1st Semester</option>
+                    <option value="2nd Semester">2nd Semester</option>
+                    <option value="Summer">Summer</option>
+                </select>
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
+                <button class="btn-save" @onclick="ConfirmSetCurrentYear"
+                        disabled="@(_settingCurrentYear || string.IsNullOrEmpty(_setCurrentYearSemester))">
+                    @(_settingCurrentYear ? "Settingâ€¦" : "Set as Current")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Set Current A.Y. (Global) Modal -->
+@if (_setCurrentAyOpen)
+{
+    <div class="mo-overlay" @onclick="CloseAllModals">
+        <div class="mo-card mo-card-sm" @onclick:stopPropagation="true">
+            <div class="mo-header">
+                <h3 class="mo-title">Set Current Academic Year</h3>
+            </div>
+            <div class="mo-body">
+                <p style="margin:0 0 16px;color:var(--text-muted,#9ca3af);font-size:0.85rem;">
+                    Select the academic year and semester to set as globally active across the system.
+                </p>
+                <label class="mo-label">Academic Year <span class="required">*</span></label>
+                <select class="mo-input" style="margin-bottom:12px;" @bind="_setCurrentAySelectedLabel">
+                    <option value="">-- Select Year --</option>
+                    @foreach (var label in _years.OrderDescending())
+                    {
+                        var isCur = _yearObjects.TryGetValue(label, out var yo) && yo.IsCurrent;
+                        <option value="@label">S.Y. @label@(isCur ? " (Current)" : "")</option>
+                    }
+                </select>
+                <label class="mo-label">Semester <span class="required">*</span></label>
+                <select class="mo-input" @bind="_setCurrentAySemester">
+                    <option value="">-- Select Semester --</option>
+                    <option value="1st Semester">1st Semester</option>
+                    <option value="2nd Semester">2nd Semester</option>
+                    <option value="Summer">Summer</option>
+                </select>
+                @if (!string.IsNullOrEmpty(_setCurrentAyError))
+                {
+                    <div class="mo-error" style="margin-top:10px;">@_setCurrentAyError</div>
+                }
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
+                <button class="btn-save" @onclick="ConfirmSetCurrentAy"
+                        disabled="@(_settingCurrentAy || string.IsNullOrEmpty(_setCurrentAySelectedLabel) || string.IsNullOrEmpty(_setCurrentAySemester))">
+                    @(_settingCurrentAy ? "Settingâ€¦" : "Set as Current")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<SuccessPopup IsVisible="_showSuccess" Message="@_successMessage" OnOkClick="() => _showSuccess = false" />
+
+<!-- Delete Confirm Modal -->
+@if (_deleteTarget != null)
+{
+    <div class="mo-overlay" @onclick="() => _deleteTarget = null">
+        <div class="mo-card mo-card-sm" @onclick:stopPropagation="true">
+            <div class="mo-header mo-header-danger">
+                <h3 class="mo-title mo-title-danger">Delete Officer</h3>
+            </div>
+            <div class="mo-body">
+                <p class="delete-confirm-text">Are you sure you want to remove:</p>
+                <p class="delete-confirm-name">@_deleteTarget.Name</p>
+                <p class="delete-confirm-detail">@_deleteTarget.Position &bull; S.Y. @_deleteTarget.AcademicYear</p>
+                <p class="delete-confirm-warning">This action cannot be undone.</p>
+            </div>
+            <div class="mo-footer">
+                <button class="btn-cancel" @onclick="() => _deleteTarget = null">Cancel</button>
+                <button class="btn-delete" @onclick="DeleteOfficer">Delete</button>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private List<string> _years = new();
+    private Dictionary<string, AcademicYearViewModel> _yearObjects = new();
+    private string _selectedYear = string.Empty;
+    private AcademicYearViewModel? SelectedYearObj => _yearObjects.TryGetValue(_selectedYear, out var y) ? y : null;
+    private List<OfficerViewModel> _currentOfficers = new();
+    private bool _loading = true;
+    private bool _loadingOfficers = false;
+    private bool _saving = false;
+    private string _modalError = string.Empty;
+
+    private bool _addSyOpen = false;
+    private string _newSy = string.Empty;
+
+    private bool _officerModalOpen = false;
+    private bool _editMode = false;
+    private OfficerViewModel _form = new();
+    private string _photoPreview = string.Empty;
+
+    // School ID verification state
+    private UserLookupViewModel? _verifiedUser;
+    private bool _schoolIdNotFound = false;
+    private bool _verifying = false;
+    private bool _schoolIdVerified = false;
+    private bool _memberCheckWarning = false;
+
+    private bool CanEdit =>
+        UserState.CurrentUser?.AccountRole.ToString() is "Officer" or "Adviser" or "DepartmentChairman" or "Admin";
+
+    private bool CanSave => !string.IsNullOrWhiteSpace(_form.SchoolId) && _schoolIdVerified && !_memberCheckWarning;
+
+    // Set current year state (per-tab)
+    private bool _setCurrentYearOpen = false;
+    private string _setCurrentYearSemester = string.Empty;
+    private bool _settingCurrentYear = false;
+
+    // Set current A.Y. state (global header button)
+    private bool _setCurrentAyOpen = false;
+    private string _setCurrentAySelectedLabel = string.Empty;
+    private string _setCurrentAySemester = string.Empty;
+    private bool _settingCurrentAy = false;
+    private string _setCurrentAyError = string.Empty;
+
+    private OfficerViewModel? _deleteTarget = null;
+    private bool _showSuccess { get; set; }
+    private string _successMessage = "Operation successful.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+
+        var yearObjs = await MembersService.GetYearsAsync();
+        _yearObjects = yearObjs.ToDictionary(y => y.Label);
+        _years = await OfficersService.GetAcademicYearsAsync();
+        if (_years.Count > 0)
+        {
+            _selectedYear = _years[0];
+        }
+
+        _loading = false;
+
+        if (!string.IsNullOrEmpty(_selectedYear))
+        {
+            _ = LoadOfficersInBackground();
+        }
+    }
+
+    private async Task LoadOfficersInBackground()
+    {
+        if (string.IsNullOrEmpty(_selectedYear))
+            return;
+
+        _loadingOfficers = true;
+        await InvokeAsync(StateHasChanged);
+        _currentOfficers = await OfficersService.GetOfficersByYearAsync(_selectedYear);
+        _loadingOfficers = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SelectYear(string year)
+    {
+        _selectedYear = year;
+        await LoadOfficersForYear(year);
+    }
+
+    private async Task LoadOfficersForYear(string year)
+    {
+        _loadingOfficers = true;
+        _currentOfficers = await OfficersService.GetOfficersByYearAsync(year);
+        _loadingOfficers = false;
+    }
+
+    private void OpenAddSyModal()
+    {
+        _newSy = string.Empty;
+        _modalError = string.Empty;
+        _addSyOpen = true;
+    }
+
+    private void AddSy()
+    {
+        var sy = _newSy.Trim();
+        if (string.IsNullOrEmpty(sy)) { _modalError = "Please enter a school year."; return; }
+        if (_years.Contains(sy)) { _modalError = "That school year already exists."; return; }
+        _years.Insert(0, sy);
+        _selectedYear = sy;
+        _currentOfficers = new();
+        _addSyOpen = false;
+    }
+
+    private void OpenAddOfficerModal()
+    {
+        _editMode = false;
+        _form = new OfficerViewModel { AcademicYear = _selectedYear };
+        _photoPreview = string.Empty;
+        _modalError = string.Empty;
+        _memberCheckWarning = false;
+        ResetVerification();
+        _officerModalOpen = true;
+    }
+
+    private void OpenEditOfficerModal(OfficerViewModel officer)
+    {
+        _editMode = true;
+        _form = new OfficerViewModel
+        {
+            Id = officer.Id,
+            Name = officer.Name,
+            Position = officer.Position,
+            AcademicYear = officer.AcademicYear,
+            Quote = officer.Quote,
+            ImageUrl = officer.ImageUrl,
+            SchoolId = officer.SchoolId
+        };
+        _photoPreview = string.Empty;
+        _modalError = string.Empty;
+        ResetVerification();
+        if (!string.IsNullOrEmpty(officer.SchoolId))
+            _schoolIdVerified = true;
+        _officerModalOpen = true;
+    }
+
+    private void ResetVerification()
+    {
+        _verifiedUser = null;
+        _schoolIdNotFound = false;
+        _verifying = false;
+        _schoolIdVerified = false;
+        _memberCheckWarning = false;
+    }
+
+    private void OnSchoolIdInput(ChangeEventArgs e)
+    {
+        _form.SchoolId = e.Value?.ToString();
+        _verifiedUser = null;
+        _schoolIdNotFound = false;
+        _schoolIdVerified = false;
+        _memberCheckWarning = false;
+    }
+
+    private async Task VerifySchoolId()
+    {
+        var sid = _form.SchoolId?.Trim();
+        if (string.IsNullOrEmpty(sid)) return;
+
+        _verifying = true;
+        _verifiedUser = null;
+        _schoolIdNotFound = false;
+        _memberCheckWarning = false;
+        StateHasChanged();
+
+        _verifiedUser = await OfficersService.LookupUserBySchoolIdAsync(sid);
+        _schoolIdVerified = _verifiedUser != null;
+        _schoolIdNotFound = _verifiedUser == null;
+
+        if (_schoolIdVerified)
+        {
+            var isMember = await MembersService.CheckMembershipForYearAsync(_selectedYear, sid);
+            _memberCheckWarning = !isMember;
+        }
+
+        _verifying = false;
+    }
+
+    private async Task OnPhotoSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        const long maxSize = 5 * 1024 * 1024;
+        using var stream = file.OpenReadStream(maxSize);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        var base64 = Convert.ToBase64String(ms.ToArray());
+        var dataUrl = $"data:{file.ContentType};base64,{base64}";
+        _photoPreview = dataUrl;
+        _form.ImageUrl = dataUrl;
+    }
+
+    private void ClearPhoto()
+    {
+        _photoPreview = string.Empty;
+        _form.ImageUrl = string.Empty;
+    }
+
+    private async Task SaveOfficer()
+    {
+        _modalError = string.Empty;
+        if (string.IsNullOrWhiteSpace(_form.Name))         { _modalError = "Name is required."; return; }
+        if (string.IsNullOrWhiteSpace(_form.Position))     { _modalError = "Position is required."; return; }
+        if (string.IsNullOrWhiteSpace(_form.AcademicYear)) { _modalError = "Academic year is required."; return; }
+
+        _saving = true;
+
+        if (_editMode)
+        {
+            var ok = await OfficersService.UpdateOfficerAsync(_form);
+            if (ok)
+            {
+                if (!_years.Contains(_form.AcademicYear)) _years.Insert(0, _form.AcademicYear);
+                _selectedYear = _form.AcademicYear;
+                await LoadOfficersForYear(_selectedYear);
+                _officerModalOpen = false;
+                _successMessage = "Officer updated successfully.";
+                _showSuccess = true;
+            }
+            else { _modalError = "Update failed. Please try again."; }
+        }
+        else
+        {
+            var created = await OfficersService.CreateOfficerAsync(_form);
+            if (created != null)
+            {
+                if (!_years.Contains(_form.AcademicYear)) _years.Insert(0, _form.AcademicYear);
+                _selectedYear = _form.AcademicYear;
+                await LoadOfficersForYear(_selectedYear);
+                _officerModalOpen = false;
+                _successMessage = "Officer added successfully.";
+                _showSuccess = true;
+            }
+            else
+            {
+                _modalError = _memberCheckWarning
+                    ? "This student is not a member for the selected year. Promote them as a member first."
+                    : "Failed to save officer. Please try again.";
+            }
+        }
+
+        _saving = false;
+    }
+
+    private void ConfirmDelete(OfficerViewModel officer) => _deleteTarget = officer;
+
+    private async Task DeleteOfficer()
+    {
+        if (_deleteTarget == null) return;
+
+        var target = _deleteTarget;
+        var idx = _currentOfficers.IndexOf(target);
+        _currentOfficers.Remove(target);
+        _deleteTarget = null;
+
+        var ok = await OfficersService.DeleteOfficerAsync(target.Id);
+        if (!ok)
+        {
+            _currentOfficers.Insert(Math.Max(0, idx), target);
+            return;
+        }
+        if (_currentOfficers.Count == 0)
+            _years = await OfficersService.GetAcademicYearsAsync();
+        _successMessage = "Officer deleted successfully.";
+        _showSuccess = true;
+    }
+
+    private void OpenSetCurrentYearModal()
+    {
+        _setCurrentYearSemester = string.Empty;
+        _setCurrentYearOpen = true;
+    }
+
+    private async Task ConfirmSetCurrentYear()
+    {
+        if (SelectedYearObj == null || string.IsNullOrEmpty(_setCurrentYearSemester)) return;
+        _settingCurrentYear = true;
+
+        var ok = await MembersService.SetCurrentYearWithSemesterAsync(SelectedYearObj.Id, _setCurrentYearSemester);
+
+        if (ok)
+        {
+            foreach (var kv in _yearObjects) kv.Value.IsCurrent = false;
+            SelectedYearObj.IsCurrent = true;
+            SelectedYearObj.CurrentSemester = _setCurrentYearSemester;
+            _setCurrentYearOpen = false;
+            _successMessage = $"S.Y. {_selectedYear} ({_setCurrentYearSemester}) is now the current academic year.";
+            _showSuccess = true;
+        }
+
+        _settingCurrentYear = false;
+    }
+
+    private void OpenSetCurrentAyModal()
+    {
+        var cur = _yearObjects.Values.FirstOrDefault(y => y.IsCurrent);
+        _setCurrentAySelectedLabel = cur?.Label ?? (_years.OrderDescending().FirstOrDefault() ?? string.Empty);
+        _setCurrentAySemester = cur?.CurrentSemester ?? string.Empty;
+        _setCurrentAyError = string.Empty;
+        _setCurrentAyOpen = true;
+    }
+
+    private async Task ConfirmSetCurrentAy()
+    {
+        if (string.IsNullOrEmpty(_setCurrentAySelectedLabel) || string.IsNullOrEmpty(_setCurrentAySemester)) return;
+
+        _settingCurrentAy = true;
+        _setCurrentAyError = string.Empty;
+
+        // If the year has no DB record yet, create one first (isCurrent=false to avoid side-effects)
+        if (!_yearObjects.TryGetValue(_setCurrentAySelectedLabel, out var yearObj))
+        {
+            var created = await MembersService.CreateYearAsync(_setCurrentAySelectedLabel, false);
+            if (created == null)
+            {
+                _setCurrentAyError = "Failed to register this year. Please try again.";
+                _settingCurrentAy = false;
+                return;
+            }
+            _yearObjects[_setCurrentAySelectedLabel] = created;
+            yearObj = created;
+        }
+
+        var ok = await MembersService.SetCurrentYearWithSemesterAsync(yearObj.Id, _setCurrentAySemester);
+        if (ok)
+        {
+            foreach (var kv in _yearObjects) { kv.Value.IsCurrent = false; kv.Value.CurrentSemester = null; }
+            yearObj.IsCurrent = true;
+            yearObj.CurrentSemester = _setCurrentAySemester;
+            _setCurrentAyOpen = false;
+            _successMessage = $"S.Y. {_setCurrentAySelectedLabel} ({_setCurrentAySemester}) is now the current academic year.";
+            _showSuccess = true;
+        }
+        else
+        {
+            _setCurrentAyError = "Failed to update. Please try again.";
+        }
+        _settingCurrentAy = false;
+    }
+
+    private void CloseAllModals()
+    {
+        _addSyOpen = false;
+        _officerModalOpen = false;
+        _deleteTarget = null;
+        _setCurrentYearOpen = false;
+        _setCurrentAyOpen = false;
+        _modalError = string.Empty;
+        _setCurrentAyError = string.Empty;
+    }
+}

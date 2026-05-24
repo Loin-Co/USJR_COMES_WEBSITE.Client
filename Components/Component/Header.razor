@@ -1,0 +1,35 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.APIs
+@inject ISiteSettingsService SettingsService
+@implements IDisposable
+
+<div class="headline-container">
+    @if (SettingsService.Current.HasHeaderLogo)
+    {
+        <img src="@ApiEndpoints.SiteSettings.HeaderLogo" alt="Logo" class="headline-logo"
+             style="height: @(SettingsService.Current.HeaderLogoHeight)px; width: auto;" />
+    }
+    else
+    {
+        <img src="images/comes_logo.svg" alt="CoMES Logo" class="headline-logo"
+             style="height: @(SettingsService.Current.HeaderLogoHeight)px; width: auto;" />
+    }
+    <h1 class="org-name">@SettingsService.Current.HeaderOrgName</h1>
+    <p class="org-quote">@SettingsService.Current.HeaderOrgQuote</p>
+    <div class="header-user-wrapper">
+        <User />
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        SettingsService.OnChange += OnSettingsChanged;
+        if (!SettingsService.IsLoaded)
+            await SettingsService.LoadAsync();
+    }
+
+    private void OnSettingsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => SettingsService.OnChange -= OnSettingsChanged;
+}

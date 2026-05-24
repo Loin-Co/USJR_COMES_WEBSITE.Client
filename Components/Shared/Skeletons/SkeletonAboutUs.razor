@@ -1,0 +1,29 @@
+@* Skeleton placeholder matching the About Us page layout *@
+<div class="aboutus-content" style="pointer-events: none;">
+    <div class="skeleton" style="height: 220px; border-radius: 8px; margin-bottom: 2rem;"></div>
+    <div style="display: flex; flex-direction: column; gap: 12px; align-items: center; margin-bottom: 2rem; text-align: center;">
+        <div class="skeleton" style="height: 28px; width: 35%;"></div>
+        <div class="skeleton" style="height: 13px; width: 80%;"></div>
+        <div class="skeleton" style="height: 13px; width: 70%;"></div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+        @for (int col = 0; col < 2; col++)
+        {
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div class="skeleton" style="height: 20px; width: 50%;"></div>
+                <div class="skeleton" style="height: 12px; width: 100%;"></div>
+                <div class="skeleton" style="height: 12px; width: 95%;"></div>
+                <div class="skeleton" style="height: 12px; width: 85%;"></div>
+                <div class="skeleton" style="height: 12px; width: 75%;"></div>
+            </div>
+        }
+    </div>
+    <div style="border-top: 1px solid rgba(255,255,255,0.1); margin: 1.5rem 0;"></div>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="skeleton" style="height: 12px; width: 90%;"></div>
+        <div class="skeleton" style="height: 12px; width: 80%;"></div>
+        <div class="skeleton" style="height: 12px; width: 85%;"></div>
+        <div class="skeleton" style="height: 16px; width: 45%; margin-top: 4px;"></div>
+        <div class="skeleton" style="height: 12px; width: 35%;"></div>
+    </div>
+</div>

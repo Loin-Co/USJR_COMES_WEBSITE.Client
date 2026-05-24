@@ -1,0 +1,18 @@
+@* Skeleton placeholder matching the Management Members row layout *@
+@for (int i = 0; i < Count; i++)
+{
+    <div style="display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <div class="skeleton skeleton-circle" style="width: 40px; height: 40px; flex-shrink: 0;"></div>
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0;">
+            <div class="skeleton" style="height: 13px; width: 45%;"></div>
+            <div class="skeleton" style="height: 11px; width: 65%;"></div>
+            <div class="skeleton" style="height: 10px; width: 40%;"></div>
+        </div>
+        <div class="skeleton" style="height: 22px; width: 70px; border-radius: 11px; flex-shrink: 0;"></div>
+        <div class="skeleton" style="height: 30px; width: 80px; border-radius: 6px; flex-shrink: 0;"></div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Count { get; set; } = 5;
+}

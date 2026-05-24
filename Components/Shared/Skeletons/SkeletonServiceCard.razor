@@ -1,0 +1,14 @@
+@* Skeleton placeholder matching the Services grid card layout *@
+@for (int i = 0; i < Count; i++)
+{
+    <div class="sc-card" style="overflow: hidden; pointer-events: none;">
+        <div class="sc-card-image skeleton" style="background-image: none !important;"></div>
+        <div style="padding: 1rem; text-align: center;">
+            <div class="skeleton" style="height: 13px; width: 60%; margin: 0 auto;"></div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Count { get; set; } = 4;
+}

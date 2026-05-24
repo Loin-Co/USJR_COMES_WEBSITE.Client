@@ -1,0 +1,47 @@
+@if (IsVisible)
+{
+    <div class="modal-overlay">
+        <div class="confirm-popup-card">
+            <div class="confirm-icon-container">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6ed42a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h2 class="confirm-title">@Title</h2>
+            <p class="confirm-message">@Message</p>
+            <div class="confirm-btn-group">
+                <button class="confirm-btn-cancel" @onclick="HandleCancelClick">Cancel</button>
+                <button class="confirm-btn-ok" @onclick="HandleOkClick">Confirm</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Confirm";
+
+    [Parameter]
+    public string Message { get; set; } = "Are you sure you want to proceed?";
+
+    [Parameter]
+    public EventCallback OnOkClick { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancelClick { get; set; }
+
+    private async Task HandleOkClick()
+    {
+        await OnOkClick.InvokeAsync();
+    }
+
+    private async Task HandleCancelClick()
+    {
+        await OnCancelClick.InvokeAsync();
+    }
+}

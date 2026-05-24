@@ -1,0 +1,178 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject UserStateService UserState
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (IsOfficer)
+{
+    <!-- Floating palette button -->
+    <button class="bgc-fab" @onclick="TogglePanel" title="Customize Background">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+            <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+            <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+            <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+        </svg>
+    </button>
+
+    @if (_panelOpen)
+    {
+        <!-- Overlay to close panel when clicking outside -->
+        <div class="bgc-overlay" @onclick="ClosePanel"></div>
+
+        <!-- Side panel -->
+        <div class="bgc-panel">
+            <div class="bgc-panel-header">
+                <span class="bgc-panel-title">Background</span>
+                <button class="bgc-close-btn" @onclick="ClosePanel">âœ•</button>
+            </div>
+
+            <div class="bgc-panel-body">
+
+                <!-- Presets -->
+                <div class="bgc-section-label">Theme Presets</div>
+                <div class="bgc-presets-grid">
+                    @foreach (var p in _colorPresets)
+                    {
+                        <button class="bgc-preset-swatch @(_activeKey == p.Key ? "active" : "")"
+                                style="background: @p.Preview"
+                                title="@p.Label"
+                                @onclick="() => ApplyPreset(p)">
+                            <span class="bgc-preset-label">@p.Label</span>
+                        </button>
+                    }
+                </div>
+
+                <!-- Gradients -->
+                <div class="bgc-section-label" style="margin-top:1rem;">Gradients</div>
+                <div class="bgc-presets-grid">
+                    @foreach (var g in _gradientPresets)
+                    {
+                        <button class="bgc-preset-swatch @(_activeKey == g.Key ? "active" : "")"
+                                style="background: @g.Preview"
+                                title="@g.Label"
+                                @onclick="() => ApplyGradientPreset(g)">
+                            <span class="bgc-preset-label">@g.Label</span>
+                        </button>
+                    }
+                </div>
+
+                <!-- Custom Color -->
+                <div class="bgc-section-label" style="margin-top:1rem;">Custom Color</div>
+                <div class="bgc-custom-color-row">
+                    <input type="color" class="bgc-color-input" @bind="_customColor" />
+                    <button class="bgc-apply-btn" @onclick="ApplyCustomColor">Apply</button>
+                </div>
+
+                <!-- Upload Image -->
+                <div class="bgc-section-label" style="margin-top:1rem;">Background Image</div>
+                <InputFile OnChange="HandleImageUpload" accept="image/*" class="bgc-file-input" />
+                @if (!string.IsNullOrEmpty(_uploadStatus))
+                {
+                    <div class="bgc-upload-status">@_uploadStatus</div>
+                }
+
+                <!-- Reset -->
+                <button class="bgc-reset-btn" @onclick="ResetToDefault">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+                    Back to Default
+                </button>
+
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool _panelOpen;
+    private string _customColor = "#07130a";
+    private string _activeKey = "";
+    private string _uploadStatus = "";
+
+    private bool IsOfficer => UserState.CurrentUser is { } u &&
+        u.AccountRole is "Officer" or "Admin" or "DepartmentChairman" or "Adviser";
+
+    private record ColorPreset(string Key, string Label, string Preview, string Value);
+    private record GradientPreset(string Key, string Label, string Preview, string Value);
+
+    private readonly List<ColorPreset> _colorPresets = new()
+    {
+        new("default",  "Forest",   "#07130a",  "#07130a"),
+        new("navy",     "Navy",     "#070b1a",  "#070b1a"),
+        new("purple",   "Violet",   "#0f0a1a",  "#0f0a1a"),
+        new("charcoal", "Charcoal", "#111111",  "#111111"),
+        new("darkred",  "Crimson",  "#1a0707",  "#1a0707"),
+        new("teal",     "Teal",     "#071a1a",  "#071a1a"),
+    };
+
+    private readonly List<GradientPreset> _gradientPresets = new()
+    {
+        new("g-forest",  "Green Mist",  "linear-gradient(135deg,#07130a,#0a2018)",  "linear-gradient(135deg,#07130a 0%,#0a2018 100%)"),
+        new("g-midnight","Midnight",    "linear-gradient(135deg,#07080a,#0a0d14)",  "linear-gradient(135deg,#07080a 0%,#0a0d14 100%)"),
+        new("g-aurora",  "Aurora",      "linear-gradient(135deg,#0b0714,#071a0d)",  "linear-gradient(135deg,#0b0714 0%,#071a0d 100%)"),
+        new("g-dusk",    "Dusk",        "linear-gradient(135deg,#14070b,#0a0714)",  "linear-gradient(135deg,#14070b 0%,#0a0714 100%)"),
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("bgCustomizer.restore");
+            UserState.OnChange += StateHasChanged;
+        }
+    }
+
+    public void Dispose() => UserState.OnChange -= StateHasChanged;
+
+    private void TogglePanel() => _panelOpen = !_panelOpen;
+    private void ClosePanel() => _panelOpen = false;
+
+    private async Task ApplyPreset(ColorPreset p)
+    {
+        _activeKey = p.Key;
+        await JS.InvokeVoidAsync("bgCustomizer.save", new { type = "color", value = p.Value });
+    }
+
+    private async Task ApplyGradientPreset(GradientPreset g)
+    {
+        _activeKey = g.Key;
+        await JS.InvokeVoidAsync("bgCustomizer.save", new { type = "gradient", value = g.Value });
+    }
+
+    private async Task ApplyCustomColor()
+    {
+        _activeKey = "custom";
+        await JS.InvokeVoidAsync("bgCustomizer.save", new { type = "color", value = _customColor });
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null) return;
+        _uploadStatus = "Processing...";
+
+        try
+        {
+            using var ms = new System.IO.MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 8 * 1024 * 1024).CopyToAsync(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            var dataUrl = $"data:{file.ContentType};base64,{base64}";
+            _activeKey = "image";
+            await JS.InvokeVoidAsync("bgCustomizer.save", new { type = "image", value = dataUrl });
+            _uploadStatus = "Image applied!";
+        }
+        catch
+        {
+            _uploadStatus = "Upload failed. Max 8 MB.";
+        }
+    }
+
+    private async Task ResetToDefault()
+    {
+        _activeKey = "default";
+        _uploadStatus = "";
+        await JS.InvokeVoidAsync("bgCustomizer.reset");
+    }
+}

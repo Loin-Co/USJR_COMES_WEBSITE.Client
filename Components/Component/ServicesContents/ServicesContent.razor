@@ -1,0 +1,93 @@
+﻿@inject USJR_COMES_WEBSITE.Services.IServicesOfferedService ServicesOfferedService
+@using USJR_COMES_WEBSITE.ViewModels
+
+<div class="sc-wrapper">
+
+    <div class="sc-header">
+        <h1 class="sc-title">@(Header?.Title ?? "ComES MEMBER SERVICES")</h1>
+        <p class="sc-description">
+            @(Header?.Description ?? "Explore the different services we offer for our members.")
+        </p>
+    </div>
+
+    <div class="sc-grid">
+        @if (Services == null)
+        {
+            <SkeletonServiceCard Count="4" />
+        }
+        else if (Services.Count == 0)
+        {
+            <div style="text-align: center; width: 100%;">No Services Available Yet...</div>
+        }
+        else
+        {
+            @foreach (var s in Services)
+            {
+                <div class="sc-card">
+                    @if (!string.IsNullOrEmpty(s.ImageUrl))
+                    {
+                        <div class="sc-card-image" style="background-image: linear-gradient(to bottom, rgba(11, 31, 32, 0.1), rgba(11, 31, 32, 0.95)), url('@(s.ImageUrl.StartsWith("data:") ? s.ImageUrl : USJR_COMES_WEBSITE.APIs.ApiEndpoints.ServerBaseUrl + s.ImageUrl)'); background-size: cover; background-position: center;"></div>
+                    }
+                    else
+                    {
+                        <div class="sc-card-image"></div>
+                    }
+                    <button class="sc-read-more" @onclick="() => OpenDetails(s)">Read MORE</button>
+                    <div style="padding: 1rem; text-align: center; font-weight: bold; z-index: 1; text-shadow: 1px 1px 3px rgba(0,0,0,0.9);">@s.Name</div>
+                </div>
+            }
+        }
+    </div>
+
+    <div class="sc-office-hours">
+        <h2 class="sc-oh-title">Office Hours</h2>
+        <div class="sc-oh-row">
+            <div class="sc-oh-col">
+                <span class="sc-oh-day">Monday - Friday</span>
+                <span class="sc-oh-time">08:00 AM – 09:00 PM</span>
+            </div>
+            <div class="sc-oh-col">
+                <span class="sc-oh-day">Saturday</span>
+                <span class="sc-oh-time">08:00 AM – 05:00 PM</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<ServicesContentDetails IsVisible="showDetails" Service="selectedService" OnClose="CloseDetails" />
+
+@code {
+    private ServicesHeaderViewModel? Header;
+    private List<ServiceOfferedViewModel>? Services;
+    private bool showDetails = false;
+    private ServiceOfferedViewModel? selectedService;
+
+    protected override void OnInitialized()
+    {
+        _ = LoadInBackground();
+    }
+
+    private async Task LoadInBackground()
+    {
+        var headerTask   = ServicesOfferedService.GetServicesHeaderAsync();
+        var servicesTask = ServicesOfferedService.GetServicesOfferedAsync();
+        await Task.WhenAll(headerTask, servicesTask);
+        Header   = await headerTask;
+        var all  = await servicesTask;
+        Services = all?.Where(s => s.IsPublished).ToList() ?? new List<ServiceOfferedViewModel>();
+        StateHasChanged();
+    }
+
+    private void OpenDetails(ServiceOfferedViewModel service)
+    {
+        selectedService = service;
+        showDetails = true;
+    }
+
+    private void CloseDetails()
+    {
+        selectedService = null;
+        showDetails = false;
+    }
+}

@@ -1,0 +1,399 @@
+@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.Components.Component.NewsFeedContents
+@using USJR_COMES_WEBSITE.APIs
+@inject ManagementPostsViewModel ViewModel
+@implements IDisposable
+
+<div class="posts-wrap">
+    <div class="posts-header">
+        <h2 class="posts-title">Posts</h2>
+        @if (!ViewModel.IsLoading && ViewModel.Posts != null)
+        {
+            <span class="posts-count-badge">@ViewModel.Posts.Count</span>
+        }
+        @if (ViewModel.CurrentRole is "Officer" or "DepartmentChairman" or "Admin")
+        {
+            <button class="add-post-btn" @onclick="ViewModel.OpenAddModal" title="Add Post">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                New Post
+            </button>
+        }
+    </div>
+
+    @if (ViewModel.IsLoading)
+    {
+        <SkeletonManagementRow Count="5" />
+    }
+    else if (ViewModel.Posts == null || ViewModel.Posts.Count == 0)
+    {
+        <div class="posts-empty">No posts yet.</div>
+    }
+    else
+    {
+        <div class="posts-card-list">
+            @foreach (var post in ViewModel.Posts)
+            {
+                <div class="post-card" @onclick="() => ViewModel.OpenDetailModal(post)">
+
+                    @if (!string.IsNullOrEmpty(post.ImageUrl))
+                    {
+                        var firstUrl = post.ImageUrl.Split(';').FirstOrDefault() ?? "";
+                        var fullUrl = ApiEndpoints.Files.ToFullUrl(firstUrl);
+                        <div class="post-card-thumb" @onclick:stopPropagation="true" @onclick="() => ViewModel.OpenDetailModal(post)">
+                            @if (IsVideo(firstUrl))
+                            {
+                                <video src="@fullUrl" style="width:100%;height:100%;object-fit:cover;" muted></video>
+                            }
+                            else if (IsPdf(firstUrl))
+                            {
+                                <div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(255,255,255,0.5);font-size:0.75rem;">PDF</div>
+                            }
+                            else
+                            {
+                                <div style="background-image:url('@fullUrl');background-size:cover;background-position:center;width:100%;height:100%;"></div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="post-card-thumb post-card-thumb-empty">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        </div>
+                    }
+
+                    <div class="post-card-info">
+                        <div class="post-card-title">@post.Title</div>
+                        <div class="post-card-meta">by @post.Name &bull; @post.DateTime</div>
+                        @if (!string.IsNullOrEmpty(post.Description))
+                        {
+                            <div class="post-card-preview">@(post.Description.Length > 120 ? post.Description[..120] + "…" : post.Description)</div>
+                        }
+                        <div class="post-card-stats">
+                            <span>♥ @post.Likes</span>
+                            <span>💬 @post.Comments</span>
+                            <span>↗ @post.Shares</span>
+                        </div>
+                    </div>
+
+                    <div class="post-card-badges" @onclick:stopPropagation="true">
+                        <span class="post-status-pill @(post.Status == "Published" ? "pill-published" : "pill-unpublished")">
+                            @post.Status
+                        </span>
+                        <span class="post-approval-pill @ViewModel.GetApprovalBadgeClass(post.ApprovalStatus)">
+                            @ViewModel.GetApprovalLabel(post.ApprovalStatus)
+                        </span>
+                        @if (post.ApprovalStatus == "Rejected" && !string.IsNullOrEmpty(post.RejectionReason))
+                        {
+                            <span class="post-reject-reason" title="@post.RejectionReason">⚠ @(post.RejectionReason.Length > 40 ? post.RejectionReason[..40] + "…" : post.RejectionReason)</span>
+                        }
+                    </div>
+
+                    <div class="post-card-actions" @onclick:stopPropagation="true">
+                        @if (ViewModel.CurrentRole is "Adviser" or "DepartmentChairman" or "Admin" && post.ApprovalStatus == "PendingApproval")
+                        {
+                            <button class="pca-btn pca-approve" @onclick="() => ViewModel.ApprovePostAsync(post)" title="Approve">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                Approve
+                            </button>
+                            <button class="pca-btn pca-reject" @onclick="() => ViewModel.OpenRejectModal(post)" title="Reject">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                Reject
+                            </button>
+                        }
+                        <button class="pca-btn pca-edit" @onclick="() => ViewModel.OpenEditModal(post)" title="Edit">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edit
+                        </button>
+                        <button class="pca-btn pca-delete" @onclick="() => ConfirmDelete(post)" title="Delete">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (postToDelete != null)
+{
+    <div class="modal-overlay" @onclick="CancelDelete">
+        <div class="modal-card confirm-delete-card" @onclick:stopPropagation="true">
+            <h3 class="modal-title text-danger">Delete Post?</h3>
+            <div class="modal-body" style="padding:1rem 0;">
+                <p>Are you sure you want to delete <strong>"@postToDelete.Title"</strong>?</p>
+                <p class="text-muted small">This action cannot be undone.</p>
+            </div>
+            <div class="modal-actions" style="justify-content:center;">
+                <button class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+                <button class="btn btn-danger" @onclick="ProceedDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ViewModel.IsRejectModalOpen)
+{
+    <div class="modal-overlay" @onclick="ViewModel.CloseRejectModal">
+        <div class="modal-card confirm-delete-card" @onclick:stopPropagation="true">
+            <h3 class="modal-title">Reject Post</h3>
+            <div class="modal-body" style="padding:1rem 0;">
+                <p>Provide a reason for rejection:</p>
+                <textarea class="form-control" rows="3" @bind="ViewModel.RejectReason" placeholder="Reason (optional)"></textarea>
+            </div>
+            <div class="modal-actions" style="justify-content:center;">
+                <button class="btn btn-secondary" @onclick="ViewModel.CloseRejectModal">Cancel</button>
+                <button class="btn btn-danger" @onclick="ViewModel.ConfirmRejectAsync">Reject</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (ViewModel.IsFormModalOpen)
+{
+    <div class="modal-overlay" @onclick="ViewModel.CloseFormModal">
+        <div class="modal-card form-modal-card" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="modal-title">@(ViewModel.IsEditing ? "Edit Post" : "Add Post")</h3>
+            </div>
+            <EditForm Model="@(ViewModel.IsEditing ? (object)ViewModel.CurrentPost : (object)ViewModel.MultiPostRequest)" OnValidSubmit="ViewModel.SavePostAsync" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger small px-3 pt-2 mb-0" />
+                <div class="modal-body">
+                    @if (!ViewModel.IsEditing)
+                    {
+                        <div class="form-group">
+                            <label>What's on your mind?</label>
+                            <InputTextArea @bind-Value="ViewModel.MultiPostRequest.Description" class="form-control" rows="2" maxlength="300"></InputTextArea>
+                            <span class="char-counter @((ViewModel.MultiPostRequest.Description?.Length ?? 0) >= 270 ? "char-counter-warn" : "")">@(ViewModel.MultiPostRequest.Description?.Length ?? 0) / 300</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Title</label>
+                            <InputText @bind-Value="ViewModel.MultiPostRequest.Title" class="form-control" maxlength="50" />
+                            <span class="char-counter @((ViewModel.MultiPostRequest.Title?.Length ?? 0) >= 45 ? "char-counter-warn" : "")">@(ViewModel.MultiPostRequest.Title?.Length ?? 0) / 50</span>
+                        </div>
+                        <div class="form-group">
+                            <label>File Upload</label>
+                            <InputFile OnChange="HandleFileSelected" class="form-control" multiple accept="image/*,video/*,.pdf" />
+                            @if (ViewModel.MultiPostRequest.FileUrls.Count > 0)
+                            {
+                                <span class="text-success small">@ViewModel.MultiPostRequest.FileUrls.Count file(s) selected</span>
+                            }
+                        </div>
+                        @if (ViewModel.CurrentRole == "DepartmentChairman")
+                        {
+                            <div class="form-group">
+                                <label>Status</label>
+                                <InputSelect @bind-Value="ViewModel.MultiPostRequest.Status" class="form-control">
+                                    <option value="Published">Published</option>
+                                    <option value="Unpublished">Unpublished</option>
+                                </InputSelect>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert" style="background:rgba(255,193,7,0.15);border:1px solid rgba(255,193,7,0.4);border-radius:6px;padding:.5rem 1rem;font-size:.85rem;">
+                                Your post will be submitted for Adviser approval before it can be published.
+                            </div>
+                        }
+                        <div class="form-group mt-3">
+                            <label class="fw-bold">Publish To:</label>
+                            <div class="form-check">
+                                @if (ViewModel.CurrentRole == "DepartmentChairman")
+                                {
+                                    <input class="form-check-input" type="checkbox" @bind="ViewModel.MultiPostRequest.PostToNewsFeed" id="cbNewsFeed">
+                                }
+                                else
+                                {
+                                    <input class="form-check-input" type="checkbox" checked disabled id="cbNewsFeed">
+                                }
+                                <label class="form-check-label" for="cbNewsFeed">News Feed</label>
+                            </div>
+                            @if (ViewModel.CurrentRole == "DepartmentChairman"  || ViewModel.CurrentRole == "Officer")
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" @bind="ViewModel.MultiPostRequest.PostToHeadline" id="cbHeadline">
+                                    <label class="form-check-label" for="cbHeadline">Headline</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" @bind="ViewModel.MultiPostRequest.PostToSlideItem" id="cbSlide">
+                                    <label class="form-check-label" for="cbSlide">Slide Item</label>
+                                </div>
+                                @* <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" @bind="ViewModel.MultiPostRequest.PostToEvents" id="cbEvents">
+                                    <label class="form-check-label" for="cbEvents">Events</label>
+                                </div> *@
+                            }
+                        </div>
+                        @* @if (ViewModel.MultiPostRequest.PostToEvents && ViewModel.CurrentRole == "DepartmentChairman" || ViewModel.CurrentRole == "Officer")
+                        {
+                            <div class="form-group mt-3 border p-3 rounded">
+                                <label class="fw-bold mb-2">Event Parameters</label>
+                                <div class="form-group">
+                                    <label>Date</label>
+                                    <input type="text" placeholder="YYYY-MM-DD" @bind="ViewModel.MultiPostRequest.EventDate" class="form-control" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Time</label>
+                                    <input type="text" placeholder="HH:MM AM/PM" @bind="ViewModel.MultiPostRequest.EventTime" class="form-control" />
+                                </div>
+                                <div class="form-group">
+                                    <label>Venue</label>
+                                    <input type="text" @bind="ViewModel.MultiPostRequest.EventVenue" class="form-control" />
+                                </div>
+                            </div>
+                        } *@
+                    }
+                    else
+                    {
+                        <div class="form-group">
+                            <label>Title</label>
+                            <InputText @bind-Value="ViewModel.CurrentPost.Title" class="form-control" maxlength="50" />
+                            <span class="char-counter @((ViewModel.CurrentPost.Title?.Length ?? 0) >= 45 ? "char-counter-warn" : "")">@(ViewModel.CurrentPost.Title?.Length ?? 0) / 50</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <InputTextArea @bind-Value="ViewModel.CurrentPost.Description" class="form-control" rows="2" maxlength="300"></InputTextArea>
+                            <span class="char-counter @((ViewModel.CurrentPost.Description?.Length ?? 0) >= 270 ? "char-counter-warn" : "")">@(ViewModel.CurrentPost.Description?.Length ?? 0) / 300</span>
+                        </div>
+                        <div class="form-group">
+                            <label>File Upload</label>
+                            <InputFile OnChange="HandleFileSelected" class="form-control" accept="image/*,video/*,.pdf" />
+                            @if (!string.IsNullOrEmpty(ViewModel.CurrentPost.ImageUrl))
+                            {
+                                var firstUrl = ViewModel.CurrentPost.ImageUrl.Split(';').FirstOrDefault() ?? "";
+                                <div class="mt-2 text-center border rounded p-2 bg-light">
+                                    @if (IsVideo(firstUrl))
+                                    {
+                                        <video src="@ApiEndpoints.Files.ToFullUrl(firstUrl)" style="max-height:150px;border-radius:8px;max-width:100%;" controls></video>
+                                    }
+                                    else
+                                    {
+                                        <img src="@ApiEndpoints.Files.ToFullUrl(firstUrl)" style="max-height:150px;border-radius:8px;max-width:100%;" />
+                                    }
+                                </div>
+                            }
+                        </div>
+                        @if (ViewModel.CurrentPost.ApprovalStatus == "Approved" || ViewModel.CurrentRole == "DepartmentChairman")
+                        {
+                            <div class="form-group">
+                                <label>Status</label>
+                                <InputSelect @bind-Value="ViewModel.CurrentPost.Status" class="form-control">
+                                    <option value="Published">Published</option>
+                                    <option value="Unpublished">Unpublished</option>
+                                </InputSelect>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="form-group">
+                                <label>Approval Status</label>
+                                <div>
+                                    <span class="badge @ViewModel.GetApprovalBadgeClass(ViewModel.CurrentPost.ApprovalStatus)">
+                                        @ViewModel.GetApprovalLabel(ViewModel.CurrentPost.ApprovalStatus)
+                                    </span>
+                                    @if (!string.IsNullOrEmpty(ViewModel.CurrentPost.RejectionReason))
+                                    {
+                                        <div class="text-danger small mt-1">Reason: @ViewModel.CurrentPost.RejectionReason</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        <div class="form-group mt-3">
+                            <label class="fw-bold">Publish To:</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="ViewModel.CurrentPost.PostToNewsFeed" id="cbNFEdit">
+                                <label class="form-check-label" for="cbNFEdit">News Feed</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="ViewModel.CurrentPost.PostToHeadline" id="cbHLEdit">
+                                <label class="form-check-label" for="cbHLEdit">Headline (Home ticker)</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="ViewModel.CurrentPost.PostToSlideItem" id="cbSIEdit">
+                                <label class="form-check-label" for="cbSIEdit">Slide Item (Home hero)</label>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" @onclick="ViewModel.CloseFormModal">Cancel</button>
+                    <button type="submit" class="btn btn-primary theme-button">
+                        @(ViewModel.IsEditing ? "Save" : (ViewModel.CurrentRole == "DepartmentChairman" ? "Post" : "Submit for Approval"))
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<NewsFeedContentDetails
+    IsVisible="ViewModel.IsDetailModalOpen"
+    PostId="@(ViewModel.SelectedPost?.Id ?? 0)"
+    Title="@ViewModel.SelectedPost?.Title"
+    Description="@ViewModel.SelectedPost?.Description"
+    ImageUrl="@(ViewModel.SelectedPost?.ImageUrl ?? "")"
+    Name="@ViewModel.SelectedPost?.Name"
+    PostDateTime="@ViewModel.SelectedPost?.DateTime"
+    Likes="@(ViewModel.SelectedPost?.Likes ?? 0)"
+    Comments="@(ViewModel.SelectedPost?.Comments ?? 0)"
+    IsLiked="@(ViewModel.SelectedPost?.IsLiked ?? false)"
+    OnClose="ViewModel.CloseDetailModal" />
+
+<SuccessPopup IsVisible="ViewModel.ShowSuccess"
+              Message="@ViewModel.SuccessMessage"
+              OnOkClick="ViewModel.HideSuccess" />
+
+@code {
+    private NewsFeedPostViewModel? postToDelete;
+
+    private bool IsVideo(string url) => !string.IsNullOrEmpty(url) && (url.Contains(".mp4", StringComparison.OrdinalIgnoreCase) || url.StartsWith("data:video", StringComparison.OrdinalIgnoreCase));
+    private bool IsPdf(string url) => !string.IsNullOrEmpty(url) && (url.Contains(".pdf", StringComparison.OrdinalIgnoreCase) || url.StartsWith("data:application/pdf", StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        ViewModel.Subscribe(StateHasChanged);
+        await ViewModel.LoadPostsAsync();
+    }
+
+    private void ConfirmDelete(NewsFeedPostViewModel post) { postToDelete = post; }
+    private void CancelDelete() { postToDelete = null; }
+
+    private async Task ProceedDelete()
+    {
+        if (postToDelete != null) { await ViewModel.DeletePostAsync(postToDelete); postToDelete = null; }
+    }
+
+    public void Dispose() { ViewModel.Unsubscribe(StateHasChanged); }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        const int maxFiles = 10;
+        const long maxSize = 50 * 1024 * 1024;
+        ViewModel.MultiPostRequest.FileUrls.Clear();
+
+        foreach (var file in e.GetMultipleFiles(maxFiles))
+        {
+            var fmt = file.ContentType;
+            var process = file;
+            if (fmt.StartsWith("image/"))
+            {
+                try { process = await file.RequestImageFileAsync(fmt, 1280, 720); } catch { }
+            }
+            using var stream = process.OpenReadStream(maxSize);
+            using var ms = new System.IO.MemoryStream();
+            await stream.CopyToAsync(ms);
+            var b64 = $"data:{fmt};base64,{Convert.ToBase64String(ms.ToArray())}";
+
+            if (ViewModel.IsEditing)
+                ViewModel.CurrentPost.ImageUrl = b64;
+            else
+                ViewModel.MultiPostRequest.FileUrls.Add(b64);
+        }
+        StateHasChanged();
+    }
+}

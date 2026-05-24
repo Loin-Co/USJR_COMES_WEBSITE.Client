@@ -1,0 +1,360 @@
+@inject USJR_COMES_WEBSITE.Services.INewsFeedService NewsFeedService
+@inject USJR_COMES_WEBSITE.Services.UserStateService UserStateService
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.APIs
+
+@if (IsVisible)
+{
+    <div class="modal-overlay" @onclick="HandleClose">
+        <div class="modal-card" @onclick:stopPropagation="true">
+            @{
+                var firstUrl = ImageUrl?.Split(';').FirstOrDefault() ?? "";
+                var firstMime = PostMimeTypes?.Split(';').FirstOrDefault() ?? "";
+            }
+            @if (!string.IsNullOrEmpty(firstUrl))
+            {
+                if (IsVideo(firstUrl, firstMime))
+                {
+                    <div style="height: 300px; border-radius: 8px 8px 0 0; overflow: hidden; background: black;">
+                        <video src="@GetFullUrl(firstUrl)" style="width: 100%; height: 100%; object-fit: contain;" controls></video>
+                    </div>
+                }
+                else if (IsPdf(firstUrl, firstMime))
+                {
+                    <div style="height: 300px; border-radius: 8px 8px 0 0; overflow: hidden; background: #eee;">
+                        <iframe src="@GetFullUrl(firstUrl)" style="width: 100%; height: 100%; border: none;"></iframe>
+                    </div>
+                }
+                else
+                {
+                    <div class="detail-image-placeholder" style="background-image: linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,0,0,0.8) 100%), url('@GetFullUrl(firstUrl)'); background-size: cover; background-position: center; border-radius: 8px 8px 0 0;"></div>
+                }
+            }
+            else
+            {
+                <div class="detail-image-placeholder detail-note-placeholder">
+                    <span class="detail-note-title">@Title</span>
+                </div>
+            }
+
+            <div class="detail-body">
+                <div class="post-author-row">
+                    <div class="post-avatar">
+                        @if (!string.IsNullOrEmpty(PostAuthorImageSrc))
+                        {
+                            <img src="@GetFullUrl(PostAuthorImageSrc)" alt="@Name" />
+                        }
+                        else
+                        {
+                            <span>@(Name.Length > 0 ? Name[0] : '?')</span>
+                        }
+                    </div>
+                    <div class="post-author-info">
+                        <span class="post-name">@Name</span>
+                        <span class="post-datetime">@PostDateTime</span>
+                    </div>
+                </div>
+
+                <div class="post-title">@Title</div>
+                <div class="post-description">@Description</div>
+
+                <hr class="post-divider" />
+
+                <div class="post-actions">
+                    @if (IsGuest)
+                    {
+                        <button class="action-btn" disabled style="opacity:0.45;cursor:default;" title="Log in to like">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                            <span>@Likes</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="action-btn" @onclick="HandleToggleLike">
+                            @if (IsLiked)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#afd94d" stroke="#0c2020" stroke-width="2" class="action-icon"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                            }
+                            <span>@Likes</span>
+                        </button>
+                    }
+
+                    <button class="action-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <span>@_postComments.Count</span>
+                    </button>
+                    @if (IsEvent)
+                    {
+                        @if (IsGuest)
+                        {
+                            <a href="/login" class="action-btn" style="background-color:rgba(255,255,255,0.08);color:rgba(255,255,255,0.45);border-radius:4px;padding:0.2rem 0.9rem;border:1px solid rgba(255,255,255,0.15);font-weight:bold;margin-left:auto;text-decoration:none;font-size:0.78rem;">
+                                Log in to register
+                            </a>
+                        }
+                        else
+                        {
+                            <button class="action-btn" style="background-color: var(--primary-accent); color: white; border-radius: 4px; padding: 0.2rem 1rem; border: none; font-weight: bold; margin-left: auto;" @onclick="HandleSubscribe">
+                                @(IsSubscribed ? "Unsubscribe" : "Register")
+                            </button>
+                        }
+                    }
+                </div>
+
+                @if (IsEvent)
+                {
+                    <div class="event-tools-row">
+                        <a class="event-tool-btn calendar-google" href="@GetGoogleCalendarLink()" target="_blank" title="Add to Google Calendar">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
+                            Google Calendar
+                        </a>
+                        <a class="event-tool-btn calendar-outlook" href="@GetOutlookCalendarLink()" target="_blank" title="Add to Outlook">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
+                            Outlook
+                        </a>
+                        <button class="event-tool-btn qr-toggle-btn" @onclick="() => _showQr = !_showQr" title="Show QR Code">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M0 .5A.5.5 0 0 1 .5 0h3a.5.5 0 0 1 0 1H1v2.5a.5.5 0 0 1-1 0V.5zm12 0a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0V1h-2.5a.5.5 0 0 1-.5-.5zM.5 12a.5.5 0 0 1 .5.5V15h2.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1H15v-2.5a.5.5 0 0 1 .5-.5zM4 4h1v1H4V4zm-1 0a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4zm7 0a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1V4zm1 0h1v1h-1V4zm-8 7a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-1zm1 0h1v1H4v-1zm4-8h1v1H8V3zm0 2h1v1H8V5zM5 8h1v1H5V8zm2 0h2v1H7V8zm1 1h1v2H8V9zm-1 1h1v1H7v-1zm2 1h1v1H9v-1zm0 1h1v1H9v-1zm1-1h1v1h-1v-1z"/></svg>
+                            QR Code
+                        </button>
+                    </div>
+
+                    @if (_showQr)
+                    {
+                        <div class="qr-section">
+                            @{
+                                var qrUrl = !string.IsNullOrWhiteSpace(GoogleFormLink)
+                                    ? GoogleFormLink
+                                    : $"{ApiEndpoints.ClientBaseUrl}/event-attendance/{EventId}";
+                            }
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=@System.Net.WebUtility.UrlEncode(qrUrl)"
+                                 alt="Event QR Code" class="qr-image" />
+                            <p class="qr-caption">Scan to register</p>
+                        </div>
+                    }
+                }
+
+                <hr class="post-divider" />
+
+                <div class="comments-section">
+                    @foreach (var comment in _postComments)
+                    {
+                        <div class="comment-item">
+                            <div class="comment-avatar">
+                                @if (!string.IsNullOrEmpty(comment.ProfileImageSrc))
+                                {
+                                    <img src="@GetFullUrl(comment.ProfileImageSrc)" alt="@comment.Name" />
+                                }
+                                else
+                                {
+                                    <span>@(string.IsNullOrEmpty(comment.Name) ? "?" : comment.Name[0])</span>
+                                }
+                            </div>
+                            <div class="comment-bubble">
+                                <span class="comment-name">@comment.Name <span style="font-size: 0.7em; font-weight: normal; color: gray;">@comment.DateTime</span></span>
+                                <span class="comment-text">@comment.Text</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <hr class="post-divider" />
+
+                @if (IsGuest)
+                {
+                    <div class="guest-comment-notice">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <a href="/login" class="guest-login-link">Log in</a> to write a comment.
+                    </div>
+                }
+                else
+                {
+                    <div class="comment-input-row">
+                        <div class="comment-input-avatar">
+                            @if (!string.IsNullOrEmpty(CurrentUserImageSrc))
+                            {
+                                <img src="@CurrentUserImageSrc" alt="You" />
+                            }
+                            else
+                            {
+                                <span>@CurrentUserInitial</span>
+                            }
+                        </div>
+                        <div class="comment-input-wrap">
+                            <input class="comment-input" placeholder="Write a comment" maxlength="200"
+                                   @bind="_newComment" @bind:event="oninput" @onkeydown="HandleKeyDown" />
+                            <span class="char-counter @(_newComment.Length >= 180 ? "char-counter-warn" : "")">@_newComment.Length / 200</span>
+                        </div>
+                        <button class="comment-send-btn" @onclick="SendComment">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="send-icon"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnToggleLike { get; set; }
+    [Parameter] public EventCallback OnCommentAdded { get; set; }
+    [Parameter] public int PostId { get; set; }
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public string PostAuthorImageSrc { get; set; } = "";
+    [Parameter] public string PostDateTime { get; set; } = "";
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Description { get; set; } = "";
+    [Parameter] public string ImageUrl { get; set; } = "";
+    [Parameter] public string PostMimeTypes { get; set; } = "";
+    [Parameter] public int Likes { get; set; }
+    [Parameter] public int Comments { get; set; }
+    [Parameter] public bool IsLiked { get; set; }
+    [Parameter] public bool IsEvent { get; set; }
+    [Parameter] public bool IsSubscribed { get; set; }
+    [Parameter] public EventCallback OnSubscribe { get; set; }
+    [Parameter] public string GoogleFormLink { get; set; } = "";
+    [Parameter] public string Venue { get; set; } = "";
+    [Parameter] public string EventDate { get; set; } = "";
+    [Parameter] public string EventTime { get; set; } = "";
+    [Parameter] public int EventId { get; set; }
+
+    private bool _showQr = false;
+    private string _newComment = "";
+    private int _currentPostId = 0;
+    private List<PostCommentViewModel> _postComments = new();
+
+    private bool IsGuest => UserStateService.CurrentUser == null;
+
+    private string? CurrentUserImageSrc
+    {
+        get
+        {
+            var u = UserStateService.CurrentUser;
+            return u != null && !string.IsNullOrEmpty(u.ProfileImageData)
+                ? $"data:{u.ProfileImageMimeType};base64,{u.ProfileImageData}"
+                : null;
+        }
+    }
+
+    private char CurrentUserInitial
+    {
+        get
+        {
+            var u = UserStateService.CurrentUser;
+            if (u == null) return '?';
+            var name = $"{u.FirstName}{u.LastName}".Trim();
+            return name.Length > 0 ? name[0] : '?';
+        }
+    }
+
+    private bool IsVideo(string url, string mime = "") =>
+        (!string.IsNullOrEmpty(mime) && mime.StartsWith("video/")) ||
+        url.Contains(".mp4", StringComparison.OrdinalIgnoreCase) ||
+        url.StartsWith("data:video", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsPdf(string url, string mime = "") =>
+        (!string.IsNullOrEmpty(mime) && mime == "application/pdf") ||
+        url.Contains(".pdf", StringComparison.OrdinalIgnoreCase) ||
+        url.StartsWith("data:application/pdf", StringComparison.OrdinalIgnoreCase);
+
+    private string GetFullUrl(string url) => !string.IsNullOrEmpty(url) && url.StartsWith("data:") ? url : ApiEndpoints.ServerBaseUrl + url;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PostId != _currentPostId && PostId > 0 && IsVisible)
+        {
+            _currentPostId = PostId;
+            _newComment = "";
+            await LoadCommentsAsync();
+        }
+        else if (!IsVisible)
+        {
+            _currentPostId = 0;
+            _showQr = false;
+        }
+    }
+
+    private async Task LoadCommentsAsync()
+    {
+        var comments = await NewsFeedService.GetCommentsForPostAsync(PostId);
+        if (comments != null) _postComments = comments;
+    }
+
+    private async Task HandleClose() => await OnClose.InvokeAsync();
+
+    private async Task HandleToggleLike() => await OnToggleLike.InvokeAsync();
+
+    private async Task HandleSubscribe()
+    {
+        if (OnSubscribe.HasDelegate) await OnSubscribe.InvokeAsync();
+    }
+
+    private async Task SendComment()
+    {
+        if (!string.IsNullOrWhiteSpace(_newComment) && PostId > 0)
+        {
+            var user = UserStateService.CurrentUser;
+            var newCmt = new PostCommentViewModel
+            {
+                PostId = PostId,
+                Text = _newComment.Trim(),
+                Name = user != null ? $"{user.FirstName} {user.LastName}".Trim() : "Guest",
+                SchoolId = user?.SchoolId ?? "0",
+                ProfileImageSrc = CurrentUserImageSrc
+            };
+
+            var created = await NewsFeedService.CreateCommentAsync(newCmt);
+            if (created != null)
+            {
+                created.ProfileImageSrc = CurrentUserImageSrc;
+                _postComments.Add(created);
+                _newComment = "";
+                if (OnCommentAdded.HasDelegate) await OnCommentAdded.InvokeAsync();
+            }
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SendComment();
+    }
+
+    private string GetGoogleCalendarLink()
+    {
+        var text = Uri.EscapeDataString(Title);
+        var details = Uri.EscapeDataString(Description);
+        var location = Uri.EscapeDataString(Venue);
+        var dates = BuildCalendarDateRange("google");
+        return $"https://calendar.google.com/calendar/r/eventedit?text={text}&details={details}&location={location}&dates={dates}";
+    }
+
+    private string GetOutlookCalendarLink()
+    {
+        var subject = Uri.EscapeDataString(Title);
+        var body = Uri.EscapeDataString(Description);
+        var location = Uri.EscapeDataString(Venue);
+        var (start, end) = BuildOutlookDateRange();
+        return $"https://outlook.live.com/calendar/0/deeplink/compose?subject={subject}&body={body}&location={location}&startdt={start}&enddt={end}";
+    }
+
+    private string BuildCalendarDateRange(string _)
+    {
+        if (DateTime.TryParse($"{EventDate} {EventTime}", out var dt))
+        {
+            var end = dt.AddHours(1);
+            return $"{dt:yyyyMMddTHHmmss}/{end:yyyyMMddTHHmmss}";
+        }
+        return "";
+    }
+
+    private (string start, string end) BuildOutlookDateRange()
+    {
+        if (DateTime.TryParse($"{EventDate} {EventTime}", out var dt))
+            return (dt.ToString("yyyy-MM-ddTHH:mm:ss"), dt.AddHours(1).ToString("yyyy-MM-ddTHH:mm:ss"));
+        return ("", "");
+    }
+}

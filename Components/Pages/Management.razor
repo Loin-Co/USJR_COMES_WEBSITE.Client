@@ -1,0 +1,27 @@
+﻿@page "/management"
+@page "/management/{PageType}"
+@using USJR_COMES_WEBSITE.Components.Component.ManagementContents
+<div class="officers-container">
+    <nav class="site-nav">
+        <NavBar2 />
+    </nav>
+
+    <div class="spacer-top"></div>
+
+    <main class="main-content-row">
+        <section class="officers-content">
+            <ManagementContent PageType="@PageType" />
+        </section>
+    </main>
+
+    <div class="spacer-bottom"></div>
+
+    <footer class="site-footer">
+        <Footer />
+    </footer>
+</div>
+
+@code {
+    [Parameter]
+    public string? PageType { get; set; }
+}

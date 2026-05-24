@@ -1,0 +1,258 @@
+﻿@inject USJR_COMES_WEBSITE.Services.INewsFeedService NewsFeedService
+@inject USJR_COMES_WEBSITE.Services.UserStateService UserStateService
+@inject Microsoft.AspNetCore.Components.NavigationManager NavigationManager
+@using USJR_COMES_WEBSITE.ViewModels
+
+<div class="upcoming-wrapper">
+
+    <div class="upcoming-header">
+        <svg class="upcoming-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+            <rect x="3" y="6" width="34" height="31" rx="3" stroke="#6ed42a" stroke-width="2.2" fill="none"/>
+            <line x1="3" y1="14" x2="37" y2="14" stroke="#6ed42a" stroke-width="2.2"/>
+            <line x1="12" y1="3" x2="12" y2="10" stroke="#6ed42a" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="28" y1="3" x2="28" y2="10" stroke="#6ed42a" stroke-width="2.5" stroke-linecap="round"/>
+            <rect x="8"  y="19" width="5" height="4" rx="1" fill="#6ed42a" opacity="0.85"/>
+            <rect x="17" y="19" width="5" height="4" rx="1" fill="#6ed42a" opacity="0.85"/>
+            <rect x="26" y="19" width="5" height="4" rx="1" fill="#6ed42a" opacity="0.45"/>
+            <rect x="8"  y="27" width="5" height="4" rx="1" fill="#6ed42a" opacity="0.85"/>
+            <rect x="17" y="27" width="5" height="4" rx="1" fill="#6ed42a" opacity="0.45"/>
+            <rect x="26" y="27" width="5" height="4" rx="1" fill="#6ed42a" opacity="0.45"/>
+        </svg>
+        <span class="upcoming-title">Upcoming Events</span>
+    </div>
+
+    <div class="events-scroll">
+        @if (Events == null)
+        {
+            <SkeletonEventCard Count="3" />
+        }
+        else if (Events.Count == 0)
+        {
+            <div class="no-events">No Events Yet...</div>
+        }
+        else
+        {
+            @foreach (var ev in Events)
+            {
+                <div class="event-card" @onclick="() => OpenDetails(ev)">
+                    @if (!string.IsNullOrEmpty(ev.ImageUrl))
+                    {
+                        var firstUrl = ev.ImageUrl.Split(';').FirstOrDefault() ?? "";
+                        <div class="event-image-placeholder relative" style="overflow: hidden; min-height: 150px; display: flex; align-items: center; justify-content: center; background: #eee;">
+                            @if (IsVideo(firstUrl))
+                            {
+                                <video src="@GetFullUrl(firstUrl)" style="width: 100%; height: 100%; object-fit: cover;" autoplay loop muted playsinline></video>
+                            }
+                            else if (IsPdf(firstUrl))
+                            {
+                                <iframe src="@GetFullUrl(firstUrl)" style="width: 100%; height: 100%; border: none; min-height: 150px;"></iframe>
+                            }
+                            else
+                            {
+                                <div style="width: 100%; height: 100%; background-image: url('@GetFullUrl(firstUrl)'); background-size: cover; background-position: center; min-height: 150px;"></div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="event-image-placeholder"></div>
+                    }
+
+                    <div class="event-body">
+                        <div class="event-title">@ev.Title</div>
+                        <div class="event-meta">
+                            <span class="meta-item">
+                                <svg class="meta-dot" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#6ed42a"/></svg>
+                                @ev.Date
+                            </span>
+                            <span class="meta-item">
+                                <svg class="meta-dot" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#6ed42a"/></svg>
+                                @ev.Time
+                            </span>
+                        </div>
+                        <div class="event-meta">
+                            <span class="meta-item">
+                                <svg class="meta-dot" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#6ed42a"/></svg>
+                                @ev.Venue
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+</div>
+
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+
+<NewsFeedContentDetails
+    IsVisible="selectedEvent != null"
+    Name="@(selectedEvent?.Organizer ?? "")"
+    PostDateTime="@(selectedEvent != null ? $"{selectedEvent.Date} · {selectedEvent.Time}" : "")"
+    Title="@(selectedEvent?.Title ?? "")"
+    Description="@(selectedEvent?.Description ?? "")"
+    Likes="@(selectedEvent?.Likes ?? 0)"
+    Comments="@(selectedEvent?.Comments ?? 0)"
+    IsLiked="@(selectedEvent?.IsLiked ?? false)"
+    IsSubscribed="@(isSubscribed)"
+    IsEvent="true"
+    OnSubscribe="HandleSubscribe"
+    ImageUrl="@(selectedEvent?.ImageUrl ?? "")"
+    OnClose="CloseDetails"
+    PostId="@(selectedEvent?.Id ?? 0)"
+    OnToggleLike="ToggleLikeSelected"
+    GoogleFormLink="@(selectedEvent?.GoogleFormLink ?? "")"
+    Venue="@(selectedEvent?.Venue ?? "")"
+    EventDate="@(selectedEvent?.Date ?? "")"
+    EventTime="@(selectedEvent?.Time ?? "")"
+    EventId="@(selectedEvent?.Id ?? 0)" />
+
+@if (showRegistrationSuccess)
+{
+    <div class="registration-toast" @onclick="() => showRegistrationSuccess = false">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg>
+        Registered for <strong>@registrationSuccessTitle</strong>! 
+    </div>
+}
+
+@if (showSubscribeConfirmModal)
+{
+    <div class="modal-overlay" @onclick="() => showSubscribeConfirmModal = false">
+        <div class="modal-card" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(isSubscribed ? "Unsubscribe" : "Subscribe")</h3>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to @(isSubscribed ? "unsubscribe from" : "subscribe to") <strong>@selectedEvent?.Title</strong>?</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" @onclick="() => showSubscribeConfirmModal = false">Cancel</button>
+                <button class="btn btn-primary theme-button" @onclick="ConfirmSubscriptionAction">Confirm</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UpcomingEventViewModel>? Events;
+
+    private UpcomingEventViewModel? selectedEvent;
+    private bool isSubscribed = false;
+    private bool showSubscribeConfirmModal = false;
+    private bool showRegistrationSuccess = false;
+    private string registrationSuccessTitle = "";
+
+    private bool IsVideo(string url) => !string.IsNullOrEmpty(url) && (url.Contains(".mp4", StringComparison.OrdinalIgnoreCase) || url.StartsWith("data:video", StringComparison.OrdinalIgnoreCase));
+    private bool IsPdf(string url) => !string.IsNullOrEmpty(url) && (url.Contains(".pdf", StringComparison.OrdinalIgnoreCase) || url.StartsWith("data:application/pdf", StringComparison.OrdinalIgnoreCase));
+    private string GetFullUrl(string url) => !string.IsNullOrEmpty(url) && url.StartsWith("data:") ? url : USJR_COMES_WEBSITE.APIs.ApiEndpoints.ServerBaseUrl + url;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Show loading immediately, then load data in background without blocking
+        Events = null;
+        StateHasChanged();
+        _ = LoadEventsInBackground();
+    }
+
+    private async Task LoadEventsInBackground()
+    {
+        var fetchedEvents = await NewsFeedService.GetUpcomingEventsAsync();
+        Events = fetchedEvents?.Where(e => e.Status == "Published").ToList() ?? new List<UpcomingEventViewModel>();
+        StateHasChanged();
+    }
+
+    private async Task OpenDetails(UpcomingEventViewModel ev)
+    {
+        selectedEvent = ev;
+        isSubscribed = false; 
+
+        var user = UserStateService.CurrentUser;
+        if (user != null && !string.IsNullOrEmpty(user.SchoolId))
+        {
+            isSubscribed = await NewsFeedService.CheckUserSubscriptionAsync(ev.Id, user.SchoolId);
+        }
+    }
+
+    private void CloseDetails()
+    {
+        selectedEvent = null;
+        isSubscribed = false;
+        showSubscribeConfirmModal = false;
+    }
+
+    private void HandleSubscribe()
+    {
+        if (selectedEvent is null) return;
+
+        var user = UserStateService.CurrentUser;
+        if (user == null || string.IsNullOrEmpty(user.SchoolId))
+        {
+            NavigationManager.NavigateTo("/login");
+            return;
+        }
+
+        showSubscribeConfirmModal = true;
+    }
+
+    private async Task ConfirmSubscriptionAction()
+    {
+        showSubscribeConfirmModal = false;
+        if (selectedEvent == null) return;
+
+        var user = UserStateService.CurrentUser;
+        if (user == null || string.IsNullOrEmpty(user.SchoolId)) return;
+
+        if (isSubscribed)
+        {
+            var success = await NewsFeedService.UnsubscribeFromEventAsync(selectedEvent.Id, user.SchoolId);
+            if (success)
+            {
+                isSubscribed = false;
+                selectedEvent.AttendeesCount = Math.Max(0, selectedEvent.AttendeesCount - 1);
+            }
+        }
+        else
+        {
+            var subscriber = new EventSubscriberViewModel
+            {
+                UpcomingEventId = selectedEvent.Id,
+                SchoolId = user.SchoolId,
+                UserName = $"{user.FirstName} {user.LastName}".Trim()
+            };
+
+            var success = await NewsFeedService.SubscribeToEventAsync(subscriber);
+            if (success)
+            {
+                isSubscribed = true;
+                selectedEvent.AttendeesCount++;
+                registrationSuccessTitle = selectedEvent.Title;
+                showRegistrationSuccess = true;
+                _ = DismissToastAfterDelay();
+            }
+        }
+    }
+
+    private async Task DismissToastAfterDelay()
+    {
+        await Task.Delay(4000);
+        showRegistrationSuccess = false;
+        StateHasChanged();
+    }
+
+    private void ToggleLikeSelected()
+    {
+        if (selectedEvent is null) return;
+        if (selectedEvent.IsLiked)
+        {
+            selectedEvent.Likes--;
+            selectedEvent.IsLiked = false;
+        }
+        else
+        {
+            selectedEvent.Likes++;
+            selectedEvent.IsLiked = true;
+        }
+    }
+}

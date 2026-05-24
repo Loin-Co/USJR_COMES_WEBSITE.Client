@@ -1,0 +1,90 @@
+﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.APIs
+@inject IOfficersService OfficersService
+<div class="org-chart-wrapper">
+    <h1 class="org-chart-title">COMES ORGANIZATIONAL CHART @(string.IsNullOrEmpty(AcademicYear) ? "" : $"- A.Y. {AcademicYear}")</h1>
+
+
+    <div class="officers-list">
+        @if (Officers == null)
+        {
+            <SkeletonOfficerCard Count="3" />
+        }
+        else if (Officers.Count == 0)
+        {
+            <p>No officers found for this academic year.</p>
+        }
+        else
+        {
+            @foreach (var (officer, index) in Officers.Select((o, i) => (o, i)))
+            {
+                <div class="officer-card @(index % 2 == 0 ? "image-left" : "image-right")">
+                    <div class="officer-image-col">
+                        <div class="officer-image-box">
+                            <img src="@GetOfficerImage(officer)" alt="@officer.Name" class="officer-img" loading="lazy" />
+                        </div>
+                    </div>
+                    <div class="officer-text">
+                        <p class="officer-quote">"@officer.Quote"</p>
+                        <p class="officer-name">@officer.Name</p>
+                        <p class="officer-position">@officer.Position, USJ-R COMPUTER ENGINEERING SOCIETY</p>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? AcademicYear { get; set; }
+
+    private List<OfficerViewModel>? Officers;
+    private List<string> _allYears = new();
+    private string _activeYear = string.Empty;
+
+    private string GetOfficerImage(OfficerViewModel officer)
+    {
+        if (string.IsNullOrWhiteSpace(officer.ImageUrl)) return "images/president.svg";
+        return ApiEndpoints.Files.ToFullUrl(officer.ImageUrl);
+    }
+
+    private string? _loadedForYear;
+
+    protected override void OnParametersSet()
+    {
+        var incoming = AcademicYear ?? "";
+        if (incoming == _loadedForYear) return;
+        Officers = null;
+        _ = LoadDataInBackground();
+    }
+
+    private async Task LoadDataInBackground()
+    {
+        _allYears = (await OfficersService.GetAcademicYearsAsync()) ?? new List<string>();
+        _activeYear = !string.IsNullOrEmpty(AcademicYear)
+            ? AcademicYear
+            : _allYears.FirstOrDefault() ?? string.Empty;
+        await LoadOfficers();
+        _loadedForYear = _activeYear;
+        StateHasChanged();
+    }
+
+    private async Task SwitchYear(string year)
+    {
+        _activeYear = year;
+        await LoadOfficers();
+        StateHasChanged();
+    }
+
+    private async Task LoadOfficers()
+    {
+        if (string.IsNullOrEmpty(_activeYear))
+        {
+            Officers = new();
+            return;
+        }
+        Officers = await OfficersService.GetOfficersByYearAsync(_activeYear);
+    }
+}
