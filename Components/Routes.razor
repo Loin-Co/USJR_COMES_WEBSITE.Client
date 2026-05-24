@@ -1,3 +1,7 @@
+@* Render mode declared here so App.razor can use plain <Routes /> without
+   @rendermode — avoids RZ10023 when the type is resolved from a ProjectReference *@
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
 <Router AppAssembly="typeof(USJR_COMES_WEBSITE.Client.ClientMarker).Assembly"
         NotFoundPage="typeof(USJR_COMES_WEBSITE.Components.Pages.NotFound)">
     <Found Context="routeData">
