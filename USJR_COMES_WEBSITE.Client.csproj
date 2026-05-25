@@ -7,6 +7,12 @@
     <RootNamespace>USJR_COMES_WEBSITE</RootNamespace>
     <AssemblyName>USJR_COMES_WEBSITE.Client</AssemblyName>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- Removes timezone data from the WASM bundle — reduces bundle size and eliminates
+         the dotnet.js preload mismatch warning in the browser console.
+         InvariantGlobalization disables culture-specific formatting (dates, numbers use
+         invariant culture). Safe for this app since formatting is done server-side. -->
+    <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
