@@ -1,0 +1,153 @@
+﻿/* -- No content / placeholder states -- */
+.au-no-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 1.2rem;
+    font-style: italic;
+}
+
+.au-placeholder {
+    color: rgba(255, 255, 255, 0.3) !important;
+    font-style: italic;
+}
+
+/* -- Outer wrapper -- */
+.aboutus-content {
+    width: 100%;
+    height: 100%;
+    padding: 2rem 3.5rem;
+    color: white;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+}
+
+/* -- Header: ABOUT US + intro -- */
+.au-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.au-title {
+    font-size: 3.4rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    margin: 0 0 0.75rem 0;
+}
+
+.au-intro {
+    font-size: 1.6rem;
+    font-weight: 600;
+    line-height: 1.65;
+    text-align: justify;
+    text-align-last: center;
+    max-width: 88%;
+    margin: 0 auto;
+    letter-spacing: 0.001em;
+}
+
+/* -- Vision / Mission two-column grid -- */
+.au-vm-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    margin-bottom: 1.25rem;
+}
+
+.au-vm-heading {
+    font-size: 1.7rem;
+    font-weight: 900;
+    text-align: center;
+    margin: 0 0 0.6rem 0;
+}
+
+.au-vm-text {
+    font-size: 1.3rem;
+    line-height: 1.75;
+    text-align: justify;
+    margin: 0;
+}
+
+/* -- Divider -- */
+.au-divider {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.25);
+    margin: 0.25rem 0 1rem 0;
+}
+
+/* -- President section: quote (58%) | image (42%) -- */
+.au-president-section {
+    display: grid;
+    grid-template-columns: 58% 42%;
+    gap: 1rem;
+    align-items: start;
+    flex: 1;
+}
+
+.au-quote-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.au-quote {
+    font-style: italic;
+    font-size: 1.3rem;
+    line-height: 1.8;
+    text-align: justify;
+    margin: 0 0 0.75rem 0;
+    z-index:2;
+}
+
+.au-president-name {
+    font-size: 1.2rem;
+    font-weight: 900;
+    margin: 0 0 0.2rem 0;
+    z-index: 2;
+}
+
+.au-president-role {
+    font-size: 1rem;
+    font-weight: 400;
+    margin: 0;
+    z-index: 2;
+}
+
+/* -- Image column with ComEs overlay -- */
+.au-img-col {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    height: 100%;
+}
+
+.au-president-img {
+    width: 100%;
+    max-height: 100px;
+    object-fit: contain;
+    object-position: bottom right;
+    display: block;
+    transform: translateY(-10px) scale(2.2) translateX(-150px);
+    transform-origin:right bottom;
+    z-index:1;
+
+}
+
+.au-comes-text {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    font-size: 2.8rem;
+    font-weight: 900;
+    color: white;
+    line-height: 1;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translateY(0px) translateX(250px) scale(2.2);
+    transform-origin: right bottom;
+    z-index: 2;
+}

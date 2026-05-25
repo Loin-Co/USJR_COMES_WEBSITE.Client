@@ -1,0 +1,116 @@
+﻿/* -- Outer wrapper --------------------------------------------- */
+.sc-wrapper {
+    width: 100%;
+    padding: 2rem 1.5rem 1.5rem;
+    color: #ffffff;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    box-sizing: border-box;
+}
+
+/* -- Header ---------------------------------------------------- */
+.sc-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.sc-title {
+    font-size: clamp(1.4rem, 3vw, 10.2rem);
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin: 0 0 1rem;
+    line-height: 1.15;
+}
+
+.sc-description {
+    font-size: clamp(0.75rem, 1.2vw, 3.9rem);
+    line-height: 1;
+    max-width: 780px;
+    margin: 0 auto;
+    opacity: 0.9;
+}
+
+/* -- Card grid ------------------------------------------------- */
+.sc-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.sc-card {
+    border: 4.5px solid rgba(255, 255, 255, 0.7);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    min-height: 180px;
+    padding: 0.75rem;
+    background-color: rgba(0, 0, 0, 0.15);
+    position: relative;
+    box-sizing: border-box;
+}
+
+.sc-card-image {
+    position: absolute;
+    inset: 0;
+    background-color: transparent;
+}
+
+.sc-read-more {
+    position: relative;
+    z-index: 1;
+    align-self: center;
+    background-color: #ffffff;
+    color: #0c2021;
+    border: none;
+    padding: 0.35rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 900;
+    font-family: inherit;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.sc-read-more:hover {
+    background-color: #d0d0d0;
+}
+
+.sc-read-more:focus {
+    outline: 2px solid #7b5ea7;
+    outline-offset: 2px;
+}
+
+/* -- Office Hours ---------------------------------------------- */
+.sc-office-hours {
+    padding-top: 0.5rem;
+}
+
+.sc-oh-title {
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    font-weight: 700;
+    margin: 0 0 0.6rem;
+}
+
+.sc-oh-row {
+    display: flex;
+    gap: 3rem;
+}
+
+.sc-oh-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.sc-oh-day {
+    font-size: 0.82rem;
+    font-weight: 400;
+    opacity: 0.85;
+}
+
+.sc-oh-time {
+    font-size: 0.82rem;
+    font-weight: 400;
+    opacity: 0.85;
+}

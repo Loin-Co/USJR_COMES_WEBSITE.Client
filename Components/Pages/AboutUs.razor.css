@@ -1,0 +1,90 @@
+﻿/* 1. System-Level Container */
+.aboutus-container {
+    display: grid;
+    /* Y-Axis: Nav(10), Spacer(1), Content(78), Spacer(1), Footer(10) = 100vh */
+    grid-template-rows: 10vh 1vh 78vh 1vh 10vh;
+    /* X-Axis: 1% Gutter | 98% Content | 1% Gutter */
+    grid-template-columns: 1% 98% 1%;
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Hard-locks the system view */
+    box-sizing: border-box;
+    position: relative;
+    z-index: 2;
+    background-color: transparent;
+    background-size: 400% 400%;
+    animation: gradientMovement 8s ease infinite;
+}
+
+/* 2. Full-Width Elements (100% X-axis) */
+.site-nav {
+    grid-column: 1 / 4;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    background-color: transparent !important;
+    overflow: visible;
+    position: relative;
+    z-index: 20;
+}
+
+.site-footer {
+    grid-column: 1 / 4;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    background-color: transparent !important;
+}
+
+/* 3. Constrained Elements (98% Content) */
+.main-content-row {
+    grid-column: 2;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: stretch; /* Forces Content to fill the 78vh slot */
+}
+
+.spacer-top, .spacer-bottom {
+    grid-column: 2;
+    width: 100%;
+    height: 100%;
+}
+
+/* 4. Content Internal Layout */
+.about-content {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto; /* Allows scrolling through Vision/Mission text */
+    scrollbar-width: thin;
+}
+
+/* 5. Deep Isolation Overrides */
+::deep NavBar2, ::deep AboutUsContent, ::deep Footer {
+    height: 100%;
+    width: 100%;
+    display: block;
+}
+
+::deep AboutUsContent {
+    height: 100% !important;
+    width: 100%;
+}
+/* Moving Gradient Logic */
+@keyframes gradientMovement {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}

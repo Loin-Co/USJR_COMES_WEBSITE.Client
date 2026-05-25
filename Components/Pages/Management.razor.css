@@ -1,0 +1,60 @@
+﻿/* Make the whole management page fit exactly in the viewport
+   so only the inner content area scrolls, not the page itself */
+.officers-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.site-nav {
+    width: 100%;
+    flex-shrink: 0;
+}
+
+/* Spacers take no space on the management page */
+.spacer-top,
+.spacer-bottom {
+    flex-shrink: 0;
+    height: 0;
+}
+
+.site-footer {
+    flex-shrink: 0;
+}
+
+/* Main area fills remaining viewport between nav and footer */
+.main-content-row {
+    flex: 1;
+    min-height: 0; /* critical — lets flex child shrink below content height */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.officers-content {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .officers-container {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+    }
+    .site-footer { display: none; }
+    .spacer-top, .spacer-bottom { display: none; }
+    .main-content-row {
+        overflow: visible;
+        min-height: 0;
+        flex: none;
+    }
+    .officers-content {
+        overflow: visible;
+        min-height: 200px;
+    }
+}

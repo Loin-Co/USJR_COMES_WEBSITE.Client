@@ -1,0 +1,132 @@
+﻿.footer-bar {
+    display: flex;
+    align-items: center;
+    background-color: rgba(7, 20, 12, 0.80);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(40, 180, 80, 0.15);
+    padding: 4px 36px;
+    gap: 24px;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+}
+
+/* -- Left block -- */
+.footer-left {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+/* Logo scales between 30 px and 65 px, preferring 5 vh */
+.footer-logo {
+    height: clamp(30px, 10vh, 100px);
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.footer-title-block {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* Org name scales with viewport height */
+.footer-org-name {
+    font-weight: 800;
+    font-size: clamp(0.6rem, 2.1vh, 0.88rem);
+    color: #e0e0e0;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.footer-org-sub {
+    font-style: italic;
+    font-size: clamp(0.55rem, 0.95vh, 0.78rem);
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* -- Social icons -- */
+.footer-socials {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.footer-social-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+    .footer-social-link:hover {
+        opacity: 0.65;
+    }
+
+/* Icons scale between 14 px and 22 px, preferring 2 vh */
+.footer-social-link svg {
+    width: clamp(14px, 2vh, 22px);
+    height: clamp(14px, 2vh, 22px);
+}
+
+/* -- Vertical divider -- */
+.footer-divider {
+    width: 1.5px;
+    align-self: stretch;
+    background-color: #3a7a3a;
+    flex-shrink: 0;
+    margin: 6px 0;
+}
+
+/* -- Nav links -- */
+.footer-nav {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    min-width: 90px;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* Each of the 5 links uses ~1 vh ? 5 � 1 vh � 1.35 lh � 6.75 vh, fits in 10 vh row */
+.footer-nav-link {
+    color: rgba(255, 255, 255, 0.75);
+    text-decoration: none;
+    font-size: clamp(0.58rem, 1.1vh, 0.82rem);
+    line-height: 1.35;
+    transition: color 0.2s;
+    white-space: nowrap;
+}
+
+    .footer-nav-link:hover {
+        color: var(--comes-accent-bright, #00ff88);
+        text-decoration: underline;
+    }

@@ -1,0 +1,249 @@
+﻿/* Login button (shown when logged out — adapts to parent color) */
+.user-login-btn {
+    display: inline-block;
+    padding: 0.45rem 1.4rem;
+    border: 2px solid currentColor;
+    border-radius: 6px;
+    color: inherit;
+    font-weight: 700;
+    font-size: 1rem;
+    text-decoration: none;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.user-login-btn:hover {
+    background-color: rgba(128, 128, 128, 0.15);
+}
+
+/* Wrapper for the logged-in state */
+.user-card-wrapper {
+    position: relative;
+}
+
+/* Circular trigger button */
+.user-card-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    color: inherit;
+    transition: background-color 0.2s ease;
+}
+
+.user-card-trigger:hover {
+    background-color: rgba(128, 128, 128, 0.15);
+}
+
+.user-card-icon-svg {
+    width: 26px;
+    height: 26px;
+    color: inherit;
+    pointer-events: none;
+}
+
+.user-card-trigger-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+/* Dropdown panel */
+.user-card-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 10px);
+    background: rgba(7, 24, 16, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 10px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+    padding: 1.2rem 1.4rem 1rem;
+    min-width: 290px;
+    z-index: 300;
+    border: 1px solid rgba(40, 180, 80, 0.25);
+    border-top: 3px solid rgba(40, 180, 80, 0.5);
+}
+
+.user-card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 0.9rem;
+}
+
+/* Circular avatar — acts as label to trigger file picker */
+.user-card-avatar {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background-color: rgba(40, 180, 80, 0.15);
+    border: 1px solid rgba(40, 180, 80, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6ed42a;
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.user-card-avatar svg {
+    width: 32px;
+    height: 32px;
+}
+
+.user-card-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.user-card-avatar-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    color: #fff;
+}
+
+.user-card-avatar:hover .user-card-avatar-overlay {
+    opacity: 1;
+}
+
+.user-card-avatar-error {
+    font-size: 0.76rem;
+    color: #ef9a9a;
+    margin-bottom: 0.5rem;
+    padding: 0.3rem 0.5rem;
+    background: rgba(239, 154, 154, 0.08);
+    border-radius: 4px;
+    border: 1px solid rgba(239, 154, 154, 0.25);
+}
+
+/* Info column */
+.user-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+    overflow: hidden;
+    text-align: left;
+    min-width: 0;
+}
+
+.user-card-name {
+    font-weight: 800;
+    font-size: 0.97rem;
+    color: #ffffff;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-card-detail {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.65);
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-card-role {
+    display: inline-block;
+    align-self: flex-start;
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #6ed42a;
+    background-color: rgba(110, 212, 42, 0.12);
+    border: 1px solid rgba(110, 212, 42, 0.3);
+    border-radius: 4px;
+    padding: 0.08rem 0.45rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Academic year + membership row */
+.user-card-year-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.4rem;
+    margin-top: 0.25rem;
+}
+
+.user-card-year-label {
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 500;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.user-card-year-badge {
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.user-card-year-badge.officer {
+    background: rgba(110, 212, 42, 0.15);
+    border: 1px solid rgba(110, 212, 42, 0.45);
+    color: #6ed42a;
+}
+
+.user-card-year-badge.member {
+    background: rgba(0, 230, 118, 0.12);
+    border: 1px solid rgba(0, 230, 118, 0.35);
+    color: #00e676;
+}
+
+.user-card-year-badge.nonmember {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Divider before logout */
+.user-card-logout {
+    width: 100%;
+    padding: 0.48rem;
+    margin-top: 0.2rem;
+    background-color: rgba(40, 180, 80, 0.15);
+    color: var(--comes-accent-bright, #00ff88);
+    border: 1px solid rgba(40, 180, 80, 0.4);
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    letter-spacing: 0.4px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    text-align: center;
+}
+
+.user-card-logout:hover {
+    background-color: rgba(40, 180, 80, 0.3);
+    color: #ffffff;
+}

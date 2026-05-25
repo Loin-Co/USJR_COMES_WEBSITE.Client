@@ -1,0 +1,60 @@
+﻿.headline-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    background: transparent;
+    color: white;
+    text-align: center;
+    gap: 0.4rem;
+    position: relative;
+}
+
+.headline-logo {
+    height: 100px;
+    width: auto;
+    margin-bottom: 0.25rem;
+}
+
+.org-name {
+    font-size: clamp(1.4rem, 3.3vw, 6.6rem);
+    font-weight: 900;
+    margin: 0;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    line-height: 1.1;
+}
+
+.org-quote {
+    font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+    font-style: italic;
+    margin: 0;
+    opacity: 0.9;
+    letter-spacing: 0.5px;
+}
+
+    .org-quote em {
+        font-style: italic;
+        text-decoration: underline;
+    }
+
+/* User slot (mobile) */
+@media (max-width: 768px) {
+    .headline-container {
+        padding: 0.5rem 0.5rem;
+        gap: 0.15rem;
+    }
+    .headline-logo { height: 48px; }
+    .org-name { font-size: clamp(0.8rem, 4.5vw, 1.4rem); letter-spacing: 1px; }
+    .org-quote { font-size: 0.7rem; }
+    .header-user-wrapper { top: 0.4rem; right: 0.5rem; }
+}
+
+/* User slot� pinned top-right */
+.header-user-wrapper {
+    position: absolute;
+    top: 0.75rem;
+    right: 1rem;
+    color: #ffffff;
+}

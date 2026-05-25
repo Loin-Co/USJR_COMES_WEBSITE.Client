@@ -1,0 +1,90 @@
+﻿.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1050; /* Above modal */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    background-color: rgba(0, 0, 0, 0.45);
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.success-popup-card {
+    background-color: rgba(7, 24, 16, 0.90) !important;
+    background-size: 400% 400%;
+    border-radius: 8px;
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1rem;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.success-icon-container {
+    width: 80px;
+    height: 80px;
+    background-color: rgba(110, 212, 42, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    box-shadow: none;
+}
+
+.success-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0;
+    color: #ffffff;
+}
+
+.success-message {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0;
+    margin-bottom: 1rem;
+}
+
+.success-btn {
+    width: 80%;
+    padding: 0.7rem 0;
+    border-radius: 6px;
+    border: none;
+    background-color: #6ed42a;
+    color: #0b1f20;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.success-btn:hover {
+    background-color: #5bb322;
+}
+
+.success-btn:active {
+    transform: scale(0.98);
+}
+
+@keyframes popIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

@@ -1,0 +1,167 @@
+﻿/* Management panel fills its parent (the officers-content section) */
+.management-container {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Role badge at top of sidebar */
+.sidebar-role-badge {
+    padding: 0.85rem 1.25rem 0.6rem;
+    border-bottom: 1px solid rgba(40,180,80,0.18);
+    flex-shrink: 0;
+}
+
+.role-label {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    background: color-mix(in srgb, var(--comes-accent, #28b450) 22%, transparent);
+    color: var(--comes-accent-bright, #00ff88);
+    border: 1px solid color-mix(in srgb, var(--comes-accent, #28b450) 40%, transparent);
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Sidebar: fixed width, scrolls independently if menu overflows */
+.management-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background-color: rgba(7, 30, 18, 0.88);
+    backdrop-filter: blur(10px);
+    color: white;
+    border-right: 1px solid color-mix(in srgb, var(--comes-accent, #28b450) 18%, transparent);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.management-menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+}
+
+.management-menu li {
+    width: 100%;
+}
+
+.menu-item {
+    display: block;
+    padding: 1rem 1.5rem;
+    color: #e0e0e0;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+}
+
+.menu-item:hover,
+.menu-item.active {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-left: 4px solid var(--comes-accent-bright, #00ff88);
+}
+
+/* Main content area: scrollable, fills remaining width */
+.management-mainarea {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0;
+    background-color: transparent;
+    color: #fff;
+    border-radius: 0 8px 8px 0;
+}
+
+.management-mainarea h2 {
+    margin-top: 0;
+    color: var(--comes-accent-bright, #00ff88);
+    border-bottom: 2px solid var(--comes-accent-bright, #00ff88);
+    padding-bottom: 0.5rem;
+}
+
+/* ── Mobile: sidebar becomes horizontal scrollable tab strip ── */
+@media (max-width: 768px) {
+    .management-container {
+        flex-direction: column;
+        height: auto;
+        min-height: calc(100vh - 60px);
+        margin: 0;
+        border-radius: 0;
+        overflow: visible;
+        box-shadow: none;
+    }
+
+    .management-sidebar {
+        width: 100%;
+        flex-direction: row;
+        flex-shrink: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-right: none;
+        border-bottom: 1px solid color-mix(in srgb, var(--comes-accent, #28b450) 22%, transparent);
+        padding: 0;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .management-sidebar::-webkit-scrollbar { display: none; }
+
+    .sidebar-role-badge {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        padding: 0.5rem 0.85rem;
+        border-right: 1px solid rgba(40,180,80,0.2);
+        white-space: nowrap;
+    }
+
+    .management-menu {
+        display: flex;
+        flex-direction: row;
+        padding: 0;
+        white-space: nowrap;
+    }
+
+    .management-menu li {
+        width: auto;
+        flex-shrink: 0;
+    }
+
+    .menu-item {
+        display: flex;
+        align-items: center;
+        padding: 0.7rem 1rem;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        font-size: 0.88rem;
+        white-space: nowrap;
+    }
+
+    .menu-item svg { display: none; }
+
+    .menu-item:hover,
+    .menu-item.active {
+        background-color: rgba(255,255,255,0.08);
+        border-left: none;
+        border-bottom: 3px solid var(--comes-accent-bright, #00ff88);
+        color: var(--comes-accent-bright, #00ff88);
+    }
+
+    .management-mainarea {
+        border-radius: 0;
+        overflow-y: visible;
+        overflow-x: hidden;
+        min-height: 400px;
+    }
+}

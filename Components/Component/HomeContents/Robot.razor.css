@@ -1,0 +1,107 @@
+﻿/* -- Card wrapper � fully transparent -- */
+.robot-card {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+/* -- Robot image area -- */
+.robot-image-wrapper {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: visible;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+}
+
+.robot-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center bottom;
+    display: block;
+    transform: translateY(60px) scale(1.8);
+    transform-origin: center bottom;
+}
+
+/* -- "ADELANTE" � pixelated white, absolutely over image -- */
+.adelante-overlay {
+    position: absolute;
+    bottom: 14px;
+    left: 10px;
+    color: #ffffff;
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    font-size: clamp(0.9rem, 1.6vw, 1.6rem);
+    font-style: normal;
+    font-weight: 400;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow:
+        -2px -2px 0 #000,
+         2px -2px 0 #000,
+        -2px  2px 0 #000,
+         2px  2px 0 #000,
+         0 0 10px rgba(0,0,0,0.9);
+    z-index: 2;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* -- Society banner strip -- */
+.robot-society-strip {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+    background: var(--comes-accent, #afd94d);
+    color: #0c2021;
+    text-align: center;
+    font-size: clamp(0.55rem, 1vw, 5rem);
+    font-weight: 1000;
+    font-style: italic;
+    padding: 6px 16px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+/* -- CpES info row � transparent -- */
+.robot-info {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 14px 12px 14px;
+    background: transparent;
+}
+
+.cpes-text {
+    
+    color: #ffffff;
+    font-size: clamp(2.2rem, 6vw, 8rem);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -1px;
+    flex-shrink: 0;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+.cpes-desc {
+    color: #e8e8e8;
+    font-size: clamp(0.55rem, 0.8vw, 0.8rem);
+    font-weight: 800;
+    letter-spacing: 1px;
+    line-height: 1.7;
+    text-transform: uppercase;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.7);
+}
