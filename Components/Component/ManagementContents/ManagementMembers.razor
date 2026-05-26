@@ -393,9 +393,24 @@
     private string _successMessage = "Operation successful.";
 
     // Filters
-    private string _statusFilter = "all";
-    private string _search = string.Empty;
-    private string _yearLevelFilter = string.Empty;
+    private string _statusFilterBacking = "all";
+    private string _statusFilter
+    {
+        get => _statusFilterBacking;
+        set { _statusFilterBacking = value; RebuildFiltered(); }
+    }
+    private string _searchBacking = string.Empty;
+    private string _search
+    {
+        get => _searchBacking;
+        set { _searchBacking = value; RebuildFiltered(); }
+    }
+    private string _yearLevelFilterBacking = string.Empty;
+    private string _yearLevelFilter
+    {
+        get => _yearLevelFilterBacking;
+        set { _yearLevelFilterBacking = value; RebuildFiltered(); }
+    }
     private List<string> _allYearLevels = new();
 
     // Add Year modal
@@ -417,23 +432,45 @@
     // Membership service requests (from payment services marked IsForMembership)
     private Dictionary<string, MembershipSvcReq> _membershipRequests = new();
 
-    private List<MemberViewModel> _filtered => _users
-        .Where(m =>
-            (_statusFilter == "all" ||
-             (_statusFilter == "member" && m.HasYearAccess) ||
-             (_statusFilter == "nonmember" && !m.HasYearAccess)) &&
-            (string.IsNullOrEmpty(_yearLevelFilter) || m.YearLevel == _yearLevelFilter) &&
-            (string.IsNullOrEmpty(_search) ||
-             m.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-             m.SchoolId.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
-             m.SchoolEmail.Contains(_search, StringComparison.OrdinalIgnoreCase))
-        )
-        .ToList();
+    // Pre-built filtered list — updated only when _users or a filter changes,
+    // not on every Blazor render cycle (which was recomputing 100+ rows constantly).
+    private List<MemberViewModel> _filtered = new();
+
+    private void RebuildFiltered()
+    {
+        _filtered = _users
+            .Where(m =>
+                (_statusFilterBacking == "all" ||
+                 (_statusFilterBacking == "member" && m.HasYearAccess) ||
+                 (_statusFilterBacking == "nonmember" && !m.HasYearAccess)) &&
+                (string.IsNullOrEmpty(_yearLevelFilterBacking) || m.YearLevel == _yearLevelFilterBacking) &&
+                (string.IsNullOrEmpty(_searchBacking) ||
+                 m.FullName.Contains(_searchBacking, StringComparison.OrdinalIgnoreCase) ||
+                 m.SchoolId.Contains(_searchBacking, StringComparison.OrdinalIgnoreCase) ||
+                 m.SchoolEmail.Contains(_searchBacking, StringComparison.OrdinalIgnoreCase))
+            )
+            .ToList();
+    }
 
     protected override async Task OnInitializedAsync()
     {
         _loadingYears = true;
-        _ = LoadYearsInBackground();
+        _ = LoadYearsAndUsersInBackground();
+    }
+
+    /// <summary>
+    /// Fetches the years list, then immediately kicks off the users fetch for the
+    /// default year in parallel with rendering the year tabs — no serial waterfall.
+    /// </summary>
+    private async Task LoadYearsAndUsersInBackground()
+    {
+        _years = await MembersService.GetYearsAsync();
+        _selectedYear = _years.FirstOrDefault(y => y.IsCurrent) ?? _years.FirstOrDefault();
+        _loadingYears = false;
+        StateHasChanged(); // show year tabs immediately
+
+        if (_selectedYear != null)
+            _ = LoadUsersInBackground(_selectedYear.Label);
     }
 
     private async Task LoadYearsInBackground()
@@ -468,6 +505,7 @@
             .OrderBy(y => y)
             .ToList();
         _loadingUsers = false;
+        RebuildFiltered(); // build once after load — not on every render
         _ = LoadMembershipRequestsInBackground(label);
         StateHasChanged();
     }
@@ -482,7 +520,7 @@
                 .GroupBy(r => r.SchoolId ?? "")
                 .Where(g => !string.IsNullOrEmpty(g.Key))
                 .ToDictionary(g => g.Key, g => g.First());
-            await InvokeAsync(StateHasChanged);
+            await InvokeAsync(() => { RebuildFiltered(); StateHasChanged(); });
         }
         catch { }
     }
@@ -508,6 +546,7 @@
             .OrderBy(y => y)
             .ToList();
         _loadingUsers = false;
+        RebuildFiltered();
         _ = LoadMembershipRequestsInBackground(label);
     }
 

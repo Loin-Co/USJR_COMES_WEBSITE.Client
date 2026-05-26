@@ -13,6 +13,15 @@
          invariant culture). Safe for this app since formatting is done server-side. -->
     <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- AOT compiles .NET IL to WebAssembly native code at publish time.
+         This trades a larger bundle (~2x) for ~60% faster in-browser startup —
+         the JIT warm-up cost is paid once at build, not on every page load.
+         Only active in Release builds (dotnet publish); Debug builds stay JIT
+         so hot-reload and fast iteration are unaffected. -->
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RunAOTCompilation>true</RunAOTCompilation>
   </PropertyGroup>
 
   <ItemGroup>
