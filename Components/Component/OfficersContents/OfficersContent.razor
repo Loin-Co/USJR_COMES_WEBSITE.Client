@@ -62,11 +62,25 @@
 
     private async Task LoadDataInBackground()
     {
-        _allYears = (await OfficersService.GetAcademicYearsAsync()) ?? new List<string>();
-        _activeYear = !string.IsNullOrEmpty(AcademicYear)
-            ? AcademicYear
-            : _allYears.FirstOrDefault() ?? string.Empty;
-        await LoadOfficers();
+        if (!string.IsNullOrEmpty(AcademicYear))
+        {
+            // Year is already known from the URL — fetch years list AND officers in parallel.
+            // This eliminates the serial waterfall (years → officers) visible in the network tab.
+            var yearsTask   = OfficersService.GetAcademicYearsAsync();
+            var officersTask = OfficersService.GetOfficersByYearAsync(AcademicYear);
+            await Task.WhenAll(yearsTask, officersTask);
+            _allYears   = yearsTask.Result ?? new List<string>();
+            _activeYear = AcademicYear;
+            Officers    = officersTask.Result;
+        }
+        else
+        {
+            // No year in URL — must fetch years first to know which year to load.
+            _allYears   = (await OfficersService.GetAcademicYearsAsync()) ?? new List<string>();
+            _activeYear = _allYears.FirstOrDefault() ?? string.Empty;
+            await LoadOfficers();
+        }
+
         _loadedForYear = _activeYear;
         StateHasChanged();
     }

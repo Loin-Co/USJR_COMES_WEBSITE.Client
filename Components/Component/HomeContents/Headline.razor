@@ -27,8 +27,16 @@
 @code {
     private List<USJR_COMES_WEBSITE.Models.Headline>? headlines;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
+    {
+        // Don't await — render the ticker bar shell immediately so layout doesn't jump,
+        // then fill in headlines when the fetch completes.
+        _ = LoadHeadlinesInBackground();
+    }
+
+    private async Task LoadHeadlinesInBackground()
     {
         headlines = await HomeService.GetHeadlinesAsync();
+        StateHasChanged();
     }
 }

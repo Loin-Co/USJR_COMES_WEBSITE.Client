@@ -104,10 +104,19 @@
         return $"background-image: linear-gradient(to bottom, rgba(55, 71, 79, 0) 30%, #37474f 100%), url('{GetFullUrl(url)}'); background-size: cover; background-position: center;";
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
+    {
+        // Fire-and-forget: render skeleton immediately, populate when data arrives.
+        // Awaiting in OnInitializedAsync would block the component from rendering at all
+        // until the network round-trip completes (visible as a blank hero on slow links).
+        _ = LoadSlidesInBackground();
+    }
+
+    private async Task LoadSlidesInBackground()
     {
         slides = await HomeService.GetSlideItemsAsync();
         _slidesLoaded = true;
+        StateHasChanged();
     }
 
     private void Next()

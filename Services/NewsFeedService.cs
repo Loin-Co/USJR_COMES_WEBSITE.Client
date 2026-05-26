@@ -1,12 +1,16 @@
 namespace USJR_COMES_WEBSITE.Services;
 using System.Net.Http.Json;
+using System.Collections.Concurrent;
 using USJR_COMES_WEBSITE.ViewModels;
 using USJR_COMES_WEBSITE.APIs;
 
 public class NewsFeedService : INewsFeedService
 {
     private readonly HttpClient _httpClient;
-    private readonly Dictionary<string, CacheEntry> _cache = new();
+    // ConcurrentDictionary is required here — multiple Blazor components on the same page
+    // (NewsFeedContent + UpcomingEvents) can call this service simultaneously from async
+    // continuations, which races on a plain Dictionary<> and causes data corruption.
+    private readonly ConcurrentDictionary<string, CacheEntry> _cache = new();
     private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(5);
 
     private class CacheEntry
@@ -41,9 +45,7 @@ public class NewsFeedService : INewsFeedService
     private void InvalidateCache(params string[] keys)
     {
         foreach (var key in keys)
-        {
-            _cache.Remove(key);
-        }
+            _cache.TryRemove(key, out _);
     }
 
     public async Task<List<NewsFeedPostViewModel>?> GetNewsFeedPostsAsync(string? schoolId = null)
