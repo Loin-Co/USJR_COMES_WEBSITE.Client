@@ -1,4 +1,4 @@
-﻿@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.ViewModels
 @using USJR_COMES_WEBSITE.Services
 @using USJR_COMES_WEBSITE.APIs
 @inject IMembersService MembersService
@@ -87,7 +87,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon-inline">
                             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                         </svg>
-                        <input class="members-search" type="text" placeholder="Search by name or IDâ€¦"
+                        <input class="members-search" type="text" placeholder="Search by name or ID…"
                                @bind="_search" @bind:event="oninput" />
                     </div>
                     <select class="members-year-select" @bind="_yearLevelFilter">
@@ -125,16 +125,16 @@
                                 <div class="member-name">@m.FullName</div>
                                 <div class="member-meta">
                                     <span class="member-id">@m.SchoolId</span>
-                                    <span class="member-sep">Â·</span>
+                                    <span class="member-sep">·</span>
                                     <span>@m.SchoolEmail</span>
                                 </div>
                                 <div class="member-sub">
                                     <span class="member-year">@m.YearLevel</span>
-                                    <span class="member-sep">Â·</span>
+                                    <span class="member-sep">·</span>
                                     <span class="member-joined">Joined @m.JoinedYear</span>
                                     @if (m.IsYearMember && m.MembershipRecord?.PromotedAt != null)
                                     {
-                                        <span class="member-sep">Â·</span>
+                                        <span class="member-sep">·</span>
                                         <span class="member-promoted">
                                             Promoted @m.MembershipRecord.PromotedAt.Value.ToString("MMM d, yyyy")
                                             @if (!string.IsNullOrEmpty(m.MembershipRecord.PromotedByName))
@@ -259,7 +259,7 @@
             <div class="mo-footer">
                 <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
                 <button class="btn-save" @onclick="AddYear" disabled="@_saving">
-                    @(_saving ? "Savingâ€¦" : "Add S.Y.")
+                    @(_saving ? "Saving…" : "Add S.Y.")
                 </button>
             </div>
         </div>
@@ -280,7 +280,7 @@
                     <div class="promote-avatar">@_promoteTarget.Initials</div>
                     <div class="promote-user-info">
                         <div class="promote-user-name">@_promoteTarget.FullName</div>
-                        <div class="promote-user-meta">@_promoteTarget.SchoolId Â· @_promoteTarget.YearLevel</div>
+                        <div class="promote-user-meta">@_promoteTarget.SchoolId · @_promoteTarget.YearLevel</div>
                     </div>
                     <span class="promote-year-badge">S.Y. @_selectedYear?.Label</span>
                 </div>
@@ -307,7 +307,7 @@
                         {
                             <span class="required">*</span>
                         }
-                        <span class="mo-label-hint">(JPG, PNG, PDF â€” proof of payment)</span>
+                        <span class="mo-label-hint">(JPG, PNG, PDF — proof of payment)</span>
                     </label>
 
                     @if (!string.IsNullOrEmpty(_receiptPreview))
@@ -346,7 +346,7 @@
                 <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
                 <button class="btn-save btn-promote" @onclick="ConfirmPromote"
                         disabled="@(_saving || (string.IsNullOrEmpty(_receiptData) && !_hasExistingProof))">
-                    @(_saving ? "Savingâ€¦" : "Confirm Membership")
+                    @(_saving ? "Saving…" : "Confirm Membership")
                 </button>
             </div>
         </div>
@@ -370,7 +370,7 @@
             <div class="mo-footer">
                 <button class="btn-cancel" @onclick="() => _revokeTarget = null">Cancel</button>
                 <button class="btn-delete" @onclick="DoRevoke" disabled="@_saving">
-                    @(_saving ? "Revokingâ€¦" : "Revoke")
+                    @(_saving ? "Revoking…" : "Revoke")
                 </button>
             </div>
         </div>

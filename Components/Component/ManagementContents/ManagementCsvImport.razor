@@ -1,4 +1,4 @@
-﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.Services
 @using USJR_COMES_WEBSITE.ViewModels
 @using USJR_COMES_WEBSITE.APIs
 @inject IMembersService MembersService
@@ -82,7 +82,7 @@
                     disabled="@(_importing || _file == null || string.IsNullOrEmpty(_selectedYear) || string.IsNullOrEmpty(_selectedSemester))">
                 @if (_importing)
                 {
-                    <span>Importingâ€¦ please wait</span>
+                    <span>Importing… please wait</span>
                 }
                 else
                 {

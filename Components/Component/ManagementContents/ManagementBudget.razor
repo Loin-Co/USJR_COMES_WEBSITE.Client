@@ -1,4 +1,4 @@
-﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.Services
 @using USJR_COMES_WEBSITE.ViewModels
 @using USJR_COMES_WEBSITE.APIs
 @using Microsoft.AspNetCore.Components.Forms
@@ -93,7 +93,7 @@
         <div class="budget-summary-row">
             <div class="summary-card cashin-card">
                 <div class="summary-label">Total Cash In</div>
-                <div class="summary-amount income-color">â‚±@TotalAllIncome.ToString("N2")</div>
+                <div class="summary-amount income-color">₱@TotalAllIncome.ToString("N2")</div>
                 <div class="summary-sub">
                     <span class="income-dot"></span>
                     Overall + @ProgramAccounts.Count program(s)
@@ -101,7 +101,7 @@
             </div>
             <div class="summary-card cashout-card">
                 <div class="summary-label">Total Cash Out</div>
-                <div class="summary-amount expense-color">â‚±@TotalAllExpense.ToString("N2")</div>
+                <div class="summary-amount expense-color">₱@TotalAllExpense.ToString("N2")</div>
                 <div class="summary-sub">
                     <span class="expense-dot"></span>
                     Overall + @ProgramAccounts.Count program(s)
@@ -109,7 +109,7 @@
             </div>
             <div class="summary-card net-card">
                 <div class="summary-label">Net Balance</div>
-                <div class="summary-amount @(NetBalance < 0 ? "negative" : "")">â‚±@NetBalance.ToString("N2")</div>
+                <div class="summary-amount @(NetBalance < 0 ? "negative" : "")">₱@NetBalance.ToString("N2")</div>
                 <div class="summary-sub">@ProgramAccounts.Count program(s)</div>
             </div>
         </div>
@@ -118,7 +118,7 @@
         {
             <div class="budget-warning">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                Overall cash out exceeds cash in by â‚±@(Math.Abs(NetBalance).ToString("N2")). Record any missing income entries.
+                Overall cash out exceeds cash in by ₱@(Math.Abs(NetBalance).ToString("N2")). Record any missing income entries.
             </div>
         }
 
@@ -153,10 +153,10 @@
                             </div>
                         </div>
                         <div class="account-cashflow-row">
-                            <span class="acf-in">+â‚±@TotalAllIncome.ToString("N2")</span>
+                            <span class="acf-in">+₱@TotalAllIncome.ToString("N2")</span>
                             <span class="acf-sep">/</span>
-                            <span class="acf-out">âˆ’â‚±@TotalAllExpense.ToString("N2")</span>
-                            <span class="acf-net @(NetBalance < 0 ? "negative" : "")">= â‚±@NetBalance.ToString("N2")</span>
+                            <span class="acf-out">−₱@TotalAllExpense.ToString("N2")</span>
+                            <span class="acf-net @(NetBalance < 0 ? "negative" : "")">= ₱@NetBalance.ToString("N2")</span>
                         </div>
                     </div>
 
@@ -173,22 +173,22 @@
                                     <div class="account-type-label" style="display:flex;align-items:center;gap:0.35rem;">
                                         @if (prog.EventId.HasValue) { <span class="event-acct-tag">Event Budget</span> }
                                         else { <span>Program</span> }
-                                        @if (prog.TargetBudget > 0) { <span>Â· Target â‚±@prog.TargetBudget.ToString("N2")</span> }
+                                        @if (prog.TargetBudget > 0) { <span>· Target ₱@prog.TargetBudget.ToString("N2")</span> }
                                     </div>
                                 </div>
                             </div>
                             <div class="account-cashflow-row">
-                                <span class="acf-in">+â‚±@prog.TotalIncome.ToString("N2")</span>
+                                <span class="acf-in">+₱@prog.TotalIncome.ToString("N2")</span>
                                 <span class="acf-sep">/</span>
-                                <span class="acf-out">âˆ’â‚±@prog.TotalExpense.ToString("N2")</span>
-                                <span class="acf-net @(prog.Balance < 0 ? "negative" : "")">= â‚±@prog.Balance.ToString("N2")</span>
+                                <span class="acf-out">−₱@prog.TotalExpense.ToString("N2")</span>
+                                <span class="acf-net @(prog.Balance < 0 ? "negative" : "")">= ₱@prog.Balance.ToString("N2")</span>
                             </div>
                             @if (prog.TargetBudget > 0)
                             {
                                 var pct = Math.Min(100m, prog.TotalExpense / prog.TargetBudget * 100);
                                 <div class="prog-bar-wrap">
                                     <div class="prog-bar"><div class="prog-bar-fill @(pct >= 100 ? "full" : "")" style="width:@pct.ToString("0")%"></div></div>
-                                    <div class="prog-bar-label">Spent â‚±@prog.TotalExpense.ToString("N2") / â‚±@prog.TargetBudget.ToString("N2")</div>
+                                    <div class="prog-bar-label">Spent ₱@prog.TotalExpense.ToString("N2") / ₱@prog.TargetBudget.ToString("N2")</div>
                                 </div>
                             }
                             @if (overSpent) { <div class="prog-warn-label">âš  Over target budget</div> }
@@ -227,7 +227,7 @@
                                         <div class="account-name">@prog.Title</div>
                                         <div class="account-type-label" style="display:flex;align-items:center;gap:0.35rem;">
                                             <span>Program</span>
-                                            @if (prog.TargetBudget > 0) { <span>Â· Target â‚±@prog.TargetBudget.ToString("N2")</span> }
+                                            @if (prog.TargetBudget > 0) { <span>· Target ₱@prog.TargetBudget.ToString("N2")</span> }
                                         </div>
                                     </div>
                                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.15);color:#f59e0b;font-weight:600;white-space:nowrap;">Pending</span>
@@ -275,7 +275,7 @@
                             {
                                 <div class="tx-panel-actions">
                                     <button class="btn-add-tx btn-cashin-sm" @onclick='() => OpenOverallTxModal("Income")'>+ Cash In</button>
-                                    <button class="btn-add-tx btn-cashout-sm" @onclick='() => OpenOverallTxModal("Expense")'>âˆ’ Cash Out</button>
+                                    <button class="btn-add-tx btn-cashout-sm" @onclick='() => OpenOverallTxModal("Expense")'>− Cash Out</button>
                                 </div>
                             }
                         </div>
@@ -287,7 +287,7 @@
                                 <div class="breakdown-chips">
                                     @foreach (var cat in OverviewExpenseBreakdown)
                                     {
-                                        <span class="breakdown-chip">@cat.Category: â‚±@cat.Total.ToString("N2")</span>
+                                        <span class="breakdown-chip">@cat.Category: ₱@cat.Total.ToString("N2")</span>
                                     }
                                 </div>
                             </div>
@@ -319,10 +319,10 @@
                                             <span class="prog-bd-name">@prog.Title</span>
                                         </div>
                                         <div class="prog-bd-flow">
-                                            <span class="acf-in">+â‚±@prog.TotalIncome.ToString("N2")</span>
+                                            <span class="acf-in">+₱@prog.TotalIncome.ToString("N2")</span>
                                             <span class="acf-sep">/</span>
-                                            <span class="acf-out">âˆ’â‚±@prog.TotalExpense.ToString("N2")</span>
-                                            <span class="acf-net @(prog.Balance < 0 ? "negative" : "")">= â‚±@prog.Balance.ToString("N2")</span>
+                                            <span class="acf-out">−₱@prog.TotalExpense.ToString("N2")</span>
+                                            <span class="acf-net @(prog.Balance < 0 ? "negative" : "")">= ₱@prog.Balance.ToString("N2")</span>
                                         </div>
                                     </div>
                                 }
@@ -334,10 +334,10 @@
                                 <div class="prog-breakdown-total">
                                     <span class="prog-bd-total-label">All Programs</span>
                                     <div class="prog-bd-flow">
-                                        <span class="acf-in">+â‚±@progIn.ToString("N2")</span>
+                                        <span class="acf-in">+₱@progIn.ToString("N2")</span>
                                         <span class="acf-sep">/</span>
-                                        <span class="acf-out">âˆ’â‚±@progOut.ToString("N2")</span>
-                                        <span class="acf-net @(progNet < 0 ? "negative" : "")">= â‚±@progNet.ToString("N2")</span>
+                                        <span class="acf-out">−₱@progOut.ToString("N2")</span>
+                                        <span class="acf-net @(progNet < 0 ? "negative" : "")">= ₱@progNet.ToString("N2")</span>
                                     </div>
                                 </div>
                             </div>
@@ -354,7 +354,7 @@
                                 @if (!ViewOnly)
                                 {
                                     <button class="btn-add-tx btn-cashin-sm" @onclick='() => OpenProgramTxModal("Income")'>+ Cash In</button>
-                                    <button class="btn-add-tx btn-cashout-sm" @onclick='() => OpenProgramTxModal("Expense")'>âˆ’ Cash Out</button>
+                                    <button class="btn-add-tx btn-cashout-sm" @onclick='() => OpenProgramTxModal("Expense")'>− Cash Out</button>
                                 }
                                 <button class="acct-btn-export" @onclick="() => ExportProgramToCsv(_selectedAccount)">CSV</button>
                             </div>
@@ -365,7 +365,7 @@
                             <div class="expense-breakdown">
                                 <div class="breakdown-label">Expense Breakdown</div>
                                 <div class="breakdown-chips">
-                                    @foreach (var cat in SelectedCategories) { <span class="breakdown-chip">@cat.Category: â‚±@cat.Total.ToString("N2")</span> }
+                                    @foreach (var cat in SelectedCategories) { <span class="breakdown-chip">@cat.Category: ₱@cat.Total.ToString("N2")</span> }
                                 </div>
                             </div>
                         }
@@ -390,7 +390,7 @@
                     <div class="tx-panel-header">
                         <div>
                             <div class="tx-panel-title">Transaction History</div>
-                            <div class="tx-panel-sub">All Â· @_accounts.Sum(a => a.Transactions.Count) record(s)</div>
+                            <div class="tx-panel-sub">All · @_accounts.Sum(a => a.Transactions.Count) record(s)</div>
                         </div>
                     </div>
                     @if (!AllTransactions.Any())
@@ -410,7 +410,7 @@
                                             @item.Tx.TransactionDate
                                             <span class="tx-acct-chip">@item.AccountTitle</span>
                                             @if (!string.IsNullOrEmpty(item.Tx.Category)) { <span class="tx-cat-chip">@item.Tx.Category</span> }
-                                            @if (!string.IsNullOrEmpty(item.Tx.Description)) { <span class="tx-desc">Â· @item.Tx.Description</span> }
+                                            @if (!string.IsNullOrEmpty(item.Tx.Description)) { <span class="tx-desc">· @item.Tx.Description</span> }
                                         </div>
                                         @if (!string.IsNullOrEmpty(item.Tx.RequestedByName))
                                         {
@@ -423,7 +423,7 @@
                                     </div>
                                     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
                                         <div class="tx-amount @(item.Tx.TransactionType == "Income" ? "income-amount" : "expense-amount")">
-                                            @(item.Tx.TransactionType == "Income" ? "+" : "âˆ’")â‚±@item.Tx.Amount.ToString("N2")
+                                            @(item.Tx.TransactionType == "Income" ? "+" : "−")₱@item.Tx.Amount.ToString("N2")
                                         </div>
                                         @if (item.Tx.ApprovalStatus == "Pending")
                                         {
@@ -482,7 +482,7 @@
             </div>
             <div class="bgt-modal-footer">
                 <button class="bgt-btn-cancel" @onclick="CloseNewYearModal">Cancel</button>
-                <button class="bgt-btn-save" @onclick="SaveNewYear" disabled="@_saving">@(_saving ? "Creatingâ€¦" : "Create")</button>
+                <button class="bgt-btn-save" @onclick="SaveNewYear" disabled="@_saving">@(_saving ? "Creating…" : "Create")</button>
             </div>
         </div>
     </div>
@@ -504,18 +504,18 @@
                     <div class="transfer-info-box">
                         <div class="transfer-info-label">From</div>
                         <div class="transfer-info-value">A.Y. @(_selectedYear?.Label)</div>
-                        <div class="transfer-info-sub">Net balance: <strong class="@(NetBalance < 0 ? "expense-color" : "income-color")">â‚±@NetBalance.ToString("N2")</strong></div>
+                        <div class="transfer-info-sub">Net balance: <strong class="@(NetBalance < 0 ? "expense-color" : "income-color")">₱@NetBalance.ToString("N2")</strong></div>
                     </div>
-                    <div class="transfer-arrow">â†’</div>
+                    <div class="transfer-arrow">→</div>
                     <div class="transfer-info-box">
                         <div class="transfer-info-label">To</div>
                         @if (_transferToNewYear)
                         {
-                            <div class="transfer-info-value">New: @(string.IsNullOrEmpty(_transferNewLabel) ? "â€”" : _transferNewLabel)</div>
+                            <div class="transfer-info-value">New: @(string.IsNullOrEmpty(_transferNewLabel) ? "—" : _transferNewLabel)</div>
                         }
                         else
                         {
-                            <div class="transfer-info-value">@(_years.FirstOrDefault(y => y.Id == _transferToYearId)?.Label ?? "â€”")</div>
+                            <div class="transfer-info-value">@(_years.FirstOrDefault(y => y.Id == _transferToYearId)?.Label ?? "—")</div>
                         }
                     </div>
                 </div>
@@ -546,7 +546,7 @@
                     <div class="bgt-field">
                         <label class="bgt-label">Select Year <span class="req">*</span></label>
                         <select class="bgt-select" @bind="_transferToYearId">
-                            <option value="0">â€” select â€”</option>
+                            <option value="0">— select —</option>
                             @foreach (var y in _years.Where(y => y.Id != _selectedYear?.Id))
                             {
                                 <option value="@y.Id">@y.Label</option>
@@ -556,16 +556,16 @@
                 }
 
                 <div class="bgt-field" style="margin-top:0.75rem;">
-                    <label class="bgt-label">Amount to Transfer (â‚±) <span class="req">*</span></label>
+                    <label class="bgt-label">Amount to Transfer (₱) <span class="req">*</span></label>
                     <input class="bgt-input" type="number" step="0.01" min="0.01" @bind="_transferAmount" placeholder="0.00" />
-                    <div class="bgt-field-hint">Net balance: <strong class="@(NetBalance < 0 ? "expense-color" : "income-color")">â‚±@NetBalance.ToString("N2")</strong></div>
+                    <div class="bgt-field-hint">Net balance: <strong class="@(NetBalance < 0 ? "expense-color" : "income-color")">₱@NetBalance.ToString("N2")</strong></div>
                 </div>
 
                 <div class="transfer-note">
                     The entered amount will be recorded as:
                     <ul class="transfer-note-list">
-                        <li>Cash Out on A.Y. @(_selectedYear?.Label) â€” <em>"Transfer to A.Y. [target]"</em></li>
-                        <li>Cash In on the target year â€” <em>"Transfer from A.Y. @(_selectedYear?.Label)"</em></li>
+                        <li>Cash Out on A.Y. @(_selectedYear?.Label) — <em>"Transfer to A.Y. [target]"</em></li>
+                        <li>Cash In on the target year — <em>"Transfer from A.Y. @(_selectedYear?.Label)"</em></li>
                     </ul>
                     The target year will become the <strong>active</strong> academic year.
                 </div>
@@ -575,7 +575,7 @@
             <div class="bgt-modal-footer">
                 <button class="bgt-btn-cancel" @onclick="CloseTransferModal">Cancel</button>
                 <button class="bgt-btn-save" style="background:#e5a700;color:#07130a;" @onclick="ProceedTransfer" disabled="@_saving">
-                    @(_saving ? "Transferringâ€¦" : $"Transfer â‚±{_transferAmount.ToString("N2")}")
+                    @(_saving ? "Transferring…" : $"Transfer ₱{_transferAmount.ToString("N2")}")
                 </button>
             </div>
         </div>
@@ -607,7 +607,7 @@
             </div>
             <div class="bgt-modal-footer">
                 <button class="bgt-btn-cancel" @onclick="CloseAccountModal">Cancel</button>
-                <button class="bgt-btn-save" @onclick="SaveAccount" disabled="@_saving">@(_saving ? "Savingâ€¦" : "Save")</button>
+                <button class="bgt-btn-save" @onclick="SaveAccount" disabled="@_saving">@(_saving ? "Saving…" : "Save")</button>
             </div>
         </div>
     </div>
@@ -622,14 +622,14 @@
                 <h3 class="bgt-modal-title">
                     @if (_editingTx) { <span>Edit Transaction</span> }
                     else if (_txForm.TransactionType == "Income") { <span>+ Cash In</span> }
-                    else { <span>âˆ’ Cash Out</span> }
+                    else { <span>− Cash Out</span> }
                 </h3>
             </div>
             <div class="bgt-modal-body">
                 <div class="bgt-requester-banner">
                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     Requested by: <strong>@_txRequesterDisplay</strong>
-                    <span class="bgt-req-id">(@(UserState.CurrentUser?.SchoolId ?? "â€”"))</span>
+                    <span class="bgt-req-id">(@(UserState.CurrentUser?.SchoolId ?? "—"))</span>
                 </div>
                 <div class="bgt-field">
                     <label class="bgt-label">Reason <span class="req">*</span></label>
@@ -643,7 +643,7 @@
                     </select>
                 </div>
                 <div class="bgt-field">
-                    <label class="bgt-label">Amount (â‚±) <span class="req">*</span></label>
+                    <label class="bgt-label">Amount (₱) <span class="req">*</span></label>
                     <input class="bgt-input" type="number" step="0.01" min="0" @bind="_txForm.Amount" placeholder="0.00" />
                 </div>
                 <div class="bgt-field">
@@ -670,7 +670,7 @@
                     {
                         <div class="bgt-receipt-existing">
                             <a href="@ApiEndpoints.Budget.TransactionReceipt(_txForm.Id)" target="_blank" class="bgt-receipt-link">View current receipt</a>
-                            <span style="color:rgba(255,255,255,0.35)"> Â· upload below to replace</span>
+                            <span style="color:rgba(255,255,255,0.35)"> · upload below to replace</span>
                         </div>
                     }
                     else
@@ -688,7 +688,7 @@
             <div class="bgt-modal-footer">
                 <button class="bgt-btn-cancel" @onclick="CloseTxModal">Cancel</button>
                 <button class="bgt-btn-save @(_txForm.TransactionType == "Income" ? "save-cashin" : "save-cashout")" @onclick="SaveTransaction" disabled="@_saving">
-                    @(_saving ? "Savingâ€¦" : (_txForm.TransactionType == "Income" ? "Record Cash In" : "Record Cash Out"))
+                    @(_saving ? "Saving…" : (_txForm.TransactionType == "Income" ? "Record Cash In" : "Record Cash Out"))
                 </button>
             </div>
         </div>
@@ -716,7 +716,7 @@
             </div>
             <div class="bgt-modal-footer">
                 <button class="bgt-btn-cancel" @onclick="CancelDelete">Cancel</button>
-                <button class="bgt-btn-delete" @onclick="ProceedDelete" disabled="@_saving">@(_saving ? "Deletingâ€¦" : "Delete")</button>
+                <button class="bgt-btn-delete" @onclick="ProceedDelete" disabled="@_saving">@(_saving ? "Deleting…" : "Delete")</button>
             </div>
         </div>
     </div>
@@ -933,7 +933,7 @@
         }
         if (_transferAmount > NetBalance)
         {
-            _transferError = $"Amount exceeds the net balance of â‚±{NetBalance.ToString("N2")}."; return;
+            _transferError = $"Amount exceeds the net balance of ₱{NetBalance.ToString("N2")}."; return;
         }
         if (_transferToNewYear && string.IsNullOrWhiteSpace(_transferNewLabel))
         {
@@ -1050,7 +1050,7 @@
         }
         catch
         {
-            _receiptUploadStatus = "Failed â€” max 10 MB.";
+            _receiptUploadStatus = "Failed — max 10 MB.";
         }
     }
 
@@ -1162,7 +1162,7 @@
                 <div class="tx-meta">
                     @tx.TransactionDate
                     @if (!string.IsNullOrEmpty(tx.Category)) { <span class="tx-cat-chip">@tx.Category</span> }
-                    @if (!string.IsNullOrEmpty(tx.Description)) { <span class="tx-desc">Â· @tx.Description</span> }
+                    @if (!string.IsNullOrEmpty(tx.Description)) { <span class="tx-desc">· @tx.Description</span> }
                 </div>
                 @if (!string.IsNullOrEmpty(tx.RequestedByName))
                 {
@@ -1175,7 +1175,7 @@
             </div>
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
                 <div class="tx-amount @(tx.TransactionType == "Income" ? "income-amount" : "expense-amount")">
-                    @(tx.TransactionType == "Income" ? "+" : "âˆ’")â‚±@tx.Amount.ToString("N2")
+                    @(tx.TransactionType == "Income" ? "+" : "−")₱@tx.Amount.ToString("N2")
                 </div>
                 @if (tx.ApprovalStatus == "Pending")
                 {

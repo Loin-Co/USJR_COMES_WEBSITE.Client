@@ -1,4 +1,4 @@
-﻿@using USJR_COMES_WEBSITE.APIs
+@using USJR_COMES_WEBSITE.APIs
 @inject USJR_COMES_WEBSITE.ViewModels.ManagementServicesViewModel ViewModel
 @inject USJR_COMES_WEBSITE.Services.UserStateService UserState
 @inject Microsoft.JSInterop.IJSRuntime JS
@@ -152,7 +152,7 @@
                                     {
                                         if (item.Key != "FileData")
                                         {
-                                            <span>â€¢ @item.Key: @item.Value</span>
+                                            <span>• @item.Key: @item.Value</span>
                                         }
                                     }
                                 </div>
@@ -256,7 +256,7 @@
                         <label>Budget Program</label>
                         <select class="form-control" value="@ViewModel.NewService.BudgetAccountId"
                                 @onchange="e => ViewModel.NewService.BudgetAccountId = e.Value != null && int.TryParse(e.Value.ToString(), out var v) ? (int?)v : null">
-                            <option value="">â€” Select a budget program â€”</option>
+                            <option value="">— Select a budget program —</option>
                             @foreach (var acct in _budgetAccounts ?? new())
                             {
                                 <option value="@acct.Id">@acct.Title</option>
@@ -338,7 +338,7 @@
                         <label>Budget Program</label>
                         <select class="form-control" value="@ViewModel.NewService.BudgetAccountId"
                                 @onchange="e => ViewModel.NewService.BudgetAccountId = e.Value != null && int.TryParse(e.Value.ToString(), out var v) ? (int?)v : null">
-                            <option value="">â€” Select a budget program â€”</option>
+                            <option value="">— Select a budget program —</option>
                             @foreach (var acct in _budgetAccounts ?? new())
                             {
                                 <option value="@acct.Id">@acct.Title</option>
@@ -576,7 +576,7 @@
 
     private List<BudgetAccountItem>? _budgetAccounts;
 
-    // Viewer attachment state â€” fetched server-side to avoid browser cross-origin issues
+    // Viewer attachment state — fetched server-side to avoid browser cross-origin issues
     private string _attachmentDataUrl = "";
     private bool _attachmentLoading = false;
     private int _attachmentFetchedForId = -1;
@@ -672,7 +672,7 @@
         }
         catch (Exception ex)
         {
-            _attachmentFetchError = $"Error: {ex.GetType().Name} â€” {ex.Message}";
+            _attachmentFetchError = $"Error: {ex.GetType().Name} — {ex.Message}";
             _attachmentDataUrl = "";
         }
         _attachmentLoading = false;

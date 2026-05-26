@@ -1,4 +1,4 @@
-﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.Services
 @using USJR_COMES_WEBSITE.APIs
 @inject IHttpClientFactory HttpClientFactory
 @inject UserStateService UserState
@@ -101,7 +101,7 @@
                                value="@_schoolId" @oninput="OnSchoolIdInput" />
                         <button class="btn-verify" @onclick="VerifySchoolId"
                                 disabled="@(_verifying || string.IsNullOrWhiteSpace(_schoolId))">
-                            @(_verifying ? "Verifyingâ€¦" : "Verify")
+                            @(_verifying ? "Verifying…" : "Verify")
                         </button>
                     </div>
                     @if (_notFound)
@@ -132,7 +132,7 @@
                 <button class="btn-cancel" @onclick="CloseModal">Cancel</button>
                 <button class="btn-save" @onclick="AppointAdviser"
                         disabled="@(_saving || _verifiedUser == null)">
-                    @(_saving ? "Appointingâ€¦" : "Appoint Adviser")
+                    @(_saving ? "Appointing…" : "Appoint Adviser")
                 </button>
             </div>
         </div>

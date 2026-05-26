@@ -1,4 +1,4 @@
-﻿@using USJR_COMES_WEBSITE.ViewModels
+@using USJR_COMES_WEBSITE.ViewModels
 @using USJR_COMES_WEBSITE.Services
 @using USJR_COMES_WEBSITE.APIs
 @inject IOfficersService OfficersService
@@ -18,7 +18,7 @@
             @if (_currentAyObj != null)
             {
                 <span class="current-ay-badge">
-                    Current: S.Y. @_currentAyObj.Label@(!string.IsNullOrEmpty(_currentAyObj.CurrentSemester) ? $" â€” {_currentAyObj.CurrentSemester}" : "")
+                    Current: S.Y. @_currentAyObj.Label@(!string.IsNullOrEmpty(_currentAyObj.CurrentSemester) ? $" — {_currentAyObj.CurrentSemester}" : "")
                 </span>
             }
         </div>
@@ -212,7 +212,7 @@
                         {
                             <button class="btn-remove" @onclick="ClearPhoto">Remove</button>
                         }
-                        <p class="photo-hint">JPG, PNG, WEBP â€” max 5 MB</p>
+                        <p class="photo-hint">JPG, PNG, WEBP — max 5 MB</p>
                     </div>
                 </div>
 
@@ -225,7 +225,7 @@
                                @oninput="OnSchoolIdInput" />
                         <button class="btn-verify" @onclick="VerifySchoolId"
                                 disabled="@(_verifying || string.IsNullOrWhiteSpace(_form.SchoolId))">
-                            @(_verifying ? "Verifyingâ€¦" : "Verify")
+                            @(_verifying ? "Verifying…" : "Verify")
                         </button>
                     </div>
                     @if (_schoolIdNotFound)
@@ -265,7 +265,7 @@
                 </div>
                 <div class="mo-field">
                     <label class="mo-label">Quote / Message</label>
-                    <textarea class="mo-textarea" rows="3" placeholder="Officer's personal quoteâ€¦" @bind="_form.Quote"></textarea>
+                    <textarea class="mo-textarea" rows="3" placeholder="Officer's personal quote…" @bind="_form.Quote"></textarea>
                 </div>
 
                 @if (!string.IsNullOrEmpty(_modalError))
@@ -276,7 +276,7 @@
             <div class="mo-footer">
                 <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
                 <button class="btn-save" @onclick="SaveOfficer" disabled="@(_saving || !CanSave)">
-                    @(_saving ? "Savingâ€¦" : (_editMode ? "Update Officer" : "Add Officer"))
+                    @(_saving ? "Saving…" : (_editMode ? "Update Officer" : "Add Officer"))
                 </button>
             </div>
         </div>
@@ -307,7 +307,7 @@
                 <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
                 <button class="btn-save" @onclick="ConfirmSetCurrentYear"
                         disabled="@(_settingCurrentYear || string.IsNullOrEmpty(_setCurrentYearSemester))">
-                    @(_settingCurrentYear ? "Settingâ€¦" : "Set as Current")
+                    @(_settingCurrentYear ? "Setting…" : "Set as Current")
                 </button>
             </div>
         </div>
@@ -351,7 +351,7 @@
                 <button class="btn-cancel" @onclick="CloseAllModals">Cancel</button>
                 <button class="btn-save" @onclick="ConfirmSetCurrentAy"
                         disabled="@(_settingCurrentAy || string.IsNullOrEmpty(_setCurrentAySelectedLabel) || string.IsNullOrEmpty(_setCurrentAySemester))">
-                    @(_settingCurrentAy ? "Settingâ€¦" : "Set as Current")
+                    @(_settingCurrentAy ? "Setting…" : "Set as Current")
                 </button>
             </div>
         </div>

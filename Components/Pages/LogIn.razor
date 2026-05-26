@@ -1,4 +1,4 @@
-﻿@page "/login"
+@page "/login"
 @inject USJR_COMES_WEBSITE.ViewModels.LoginViewModel ViewModel
 @inject NavigationManager NavigationManager
 @inject IUserServices UserServices
@@ -55,7 +55,7 @@
     <div class="popup-overlay" @onclick="() => _showNoPasswordPopup = false">
         <div class="popup-card" @onclick:stopPropagation="true">
             <p class="popup-title">No Password Yet</p>
-            <p class="popup-body-text">Your account does not have a password yet. We've sent a link to your school Gmail account â€” check your inbox and click the link to set your password.</p>
+            <p class="popup-body-text">Your account does not have a password yet. We've sent a link to your school Gmail account — check your inbox and click the link to set your password.</p>
             <div class="popup-footer">
                 <button class="popup-btn-primary" @onclick="() => _showNoPasswordPopup = false">OK, Got It</button>
             </div>
@@ -98,7 +98,7 @@
                 <div class="popup-footer">
                     <button class="popup-btn-cancel" @onclick="CloseForgotModal">Cancel</button>
                     <button class="popup-btn-primary" @onclick="SendForgotEmail" disabled="@_forgotSending">
-                        @(_forgotSending ? "Sendingâ€¦" : "Send Reset Link")
+                        @(_forgotSending ? "Sending…" : "Send Reset Link")
                     </button>
                 </div>
             }
@@ -118,7 +118,7 @@
     // No-password popup (component-level state)
     private bool _showNoPasswordPopup = false;
 
-    // Forgot password (component-level state â€” never touches ViewModel for UI)
+    // Forgot password (component-level state — never touches ViewModel for UI)
     private bool   _showForgotModal = false;
     private bool   _forgotSent      = false;
     private bool   _forgotSending   = false;

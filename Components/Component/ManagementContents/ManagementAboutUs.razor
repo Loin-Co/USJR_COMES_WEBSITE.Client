@@ -1,4 +1,4 @@
-﻿@using USJR_COMES_WEBSITE.Services
+@using USJR_COMES_WEBSITE.Services
 @using USJR_COMES_WEBSITE.ViewModels
 @using USJR_COMES_WEBSITE.APIs
 @inject IAboutUsService AboutUsService
@@ -17,7 +17,7 @@
 
     @if (_saving || _proposing)
     {
-        <div class="au-status-saving">@(_proposing ? "Submittingâ€¦" : "Savingâ€¦")</div>
+        <div class="au-status-saving">@(_proposing ? "Submitting…" : "Saving…")</div>
     }
     @if (!string.IsNullOrEmpty(_saveMessage))
     {
@@ -42,7 +42,7 @@
                     }
                     else if (_bannerLoading)
                     {
-                        <div class="banner-preview-placeholder">Loading current bannerâ€¦</div>
+                        <div class="banner-preview-placeholder">Loading current banner…</div>
                     }
                     else if (!string.IsNullOrEmpty(_bannerDataUrl))
                     {
@@ -146,7 +146,7 @@
                 {
                     <button class="btn-save-aboutus btn-propose-aboutus" @onclick="() => _showProposeConfirm = true" disabled="@_proposing">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle;margin-right:5px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        @(_proposing ? "Submittingâ€¦" : "Submit for Approval")
+                        @(_proposing ? "Submitting…" : "Submit for Approval")
                     </button>
                 }
             </div>
@@ -170,7 +170,7 @@
             <div class="au-modal-actions">
                 <button class="au-modal-btn-cancel" @onclick="() => _showProposeConfirm = false">Cancel</button>
                 <button class="au-modal-btn-confirm" @onclick="ProposeAsync" disabled="@_proposing">
-                    @(_proposing ? "Submittingâ€¦" : "Yes, Submit")
+                    @(_proposing ? "Submitting…" : "Yes, Submit")
                 </button>
             </div>
         </div>
