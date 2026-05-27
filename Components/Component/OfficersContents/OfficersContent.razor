@@ -2,7 +2,6 @@
 @using USJR_COMES_WEBSITE.ViewModels
 @using USJR_COMES_WEBSITE.APIs
 @inject IOfficersService OfficersService
-@inject HttpClient Http
 
 <div class="org-chart-wrapper">
     <h1 class="org-chart-title">COMES ORGANIZATIONAL CHART @(string.IsNullOrEmpty(AcademicYear) ? "" : $"- A.Y. {AcademicYear}")</h1>
@@ -23,7 +22,7 @@
                 <div class="officer-card @(index % 2 == 0 ? "image-left" : "image-right")">
                     <div class="officer-image-col">
                         <div class="officer-image-box">
-                            <img src="@GetOfficerImage(officer)" alt="@officer.Name" class="officer-img" loading="lazy" />
+                            <img src="@GetOfficerImage(officer)" alt="@officer.Name" class="officer-img" />
                         </div>
                     </div>
                     <div class="officer-text">
@@ -45,58 +44,14 @@
     private List<string> _allYears = new();
     private string _activeYear = string.Empty;
 
-    // Cache of ImageUrl → data: URL (or fallback path)
-    private Dictionary<string, string> _imageCache = new();
-
-    private const string FallbackImage = "images/person.svg";
-
     /// <summary>
-    /// Returns the cached data: URL for officers with photos,
-    /// or the generic person placeholder if none uploaded.
-    /// Never points the browser directly at the backend.
+    /// Returns the officer's uploaded photo URL, or the generic
+    /// person.svg silhouette if no photo has been uploaded.
     /// </summary>
     private string GetOfficerImage(OfficerViewModel officer)
     {
-        if (string.IsNullOrWhiteSpace(officer.ImageUrl)) return FallbackImage;
-        return _imageCache.TryGetValue(officer.ImageUrl, out var cached) ? cached : FallbackImage;
-    }
-
-    /// <summary>
-    /// Fetches all officer images from the API server-side (in WASM context)
-    /// and converts them to base64 data: URLs so the browser never makes
-    /// unauthenticated direct requests to the backend file endpoint.
-    /// </summary>
-    private async Task LoadOfficerImagesAsync()
-    {
-        if (Officers == null) return;
-
-        var tasks = Officers
-            .Where(o => !string.IsNullOrWhiteSpace(o.ImageUrl) && !_imageCache.ContainsKey(o.ImageUrl!))
-            .Select(async o =>
-            {
-                try
-                {
-                    var url   = ApiEndpoints.Files.ToFullUrl(o.ImageUrl!);
-                    var bytes = await Http.GetByteArrayAsync(url);
-                    var ext   = o.ImageUrl!.Split('.').LastOrDefault()?.ToLower() ?? "jpeg";
-                    var mime  = ext switch
-                    {
-                        "png"  => "image/png",
-                        "gif"  => "image/gif",
-                        "webp" => "image/webp",
-                        _      => "image/jpeg"
-                    };
-                    _imageCache[o.ImageUrl!] = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
-                }
-                catch
-                {
-                    // Image unavailable — fall back to generic placeholder
-                    _imageCache[o.ImageUrl!] = FallbackImage;
-                }
-            });
-
-        await Task.WhenAll(tasks);
-        StateHasChanged();
+        if (string.IsNullOrWhiteSpace(officer.ImageUrl)) return "images/person.svg";
+        return ApiEndpoints.Files.ToFullUrl(officer.ImageUrl);
     }
 
     private string? _loadedForYear;
@@ -106,7 +61,6 @@
         var incoming = AcademicYear ?? "";
         if (incoming == _loadedForYear) return;
         Officers = null;
-        _imageCache.Clear();
         _ = LoadDataInBackground();
     }
 
@@ -132,18 +86,13 @@
 
         _loadedForYear = _activeYear;
         StateHasChanged();
-
-        // Now fetch all officer images server-side → data: URLs
-        await LoadOfficerImagesAsync();
     }
 
     private async Task SwitchYear(string year)
     {
         _activeYear = year;
-        _imageCache.Clear();
         await LoadOfficers();
         StateHasChanged();
-        await LoadOfficerImagesAsync();
     }
 
     private async Task LoadOfficers()
