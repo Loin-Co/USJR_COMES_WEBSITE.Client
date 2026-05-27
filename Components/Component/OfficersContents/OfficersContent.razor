@@ -22,7 +22,9 @@
                 <div class="officer-card @(index % 2 == 0 ? "image-left" : "image-right")">
                     <div class="officer-image-col">
                         <div class="officer-image-box">
-                            <img src="@GetOfficerImage(officer)" alt="@officer.Name" class="officer-img" />
+                            <img src="@GetOfficerImage(officer)"
+                                 alt="@officer.Name"
+                                 class="officer-img @(string.IsNullOrWhiteSpace(officer.ImageUrl) ? "officer-img--placeholder" : "")" />
                         </div>
                     </div>
                     <div class="officer-text">

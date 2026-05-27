@@ -67,6 +67,13 @@
     transform: translateY(0px) scale(1.1);
 }
 
+/* Generic placeholder (person.svg) — center it instead of covering */
+.officer-img--placeholder {
+    object-fit: contain;
+    transform: none;
+    padding: 12%;
+}
+
 /* -- Text block ---------------------------------------- */
 .officer-text {
     flex: 1;
