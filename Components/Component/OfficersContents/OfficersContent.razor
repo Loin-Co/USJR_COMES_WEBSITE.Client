@@ -46,7 +46,7 @@
 
     private string GetOfficerImage(OfficerViewModel officer)
     {
-        if (string.IsNullOrWhiteSpace(officer.ImageUrl)) return "images/president.svg";
+        if (string.IsNullOrWhiteSpace(officer.ImageUrl)) return "images/person.svg";
         return ApiEndpoints.Files.ToFullUrl(officer.ImageUrl);
     }
 
