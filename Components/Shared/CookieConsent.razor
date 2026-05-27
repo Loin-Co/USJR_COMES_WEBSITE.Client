@@ -37,8 +37,6 @@
 }
 
 @code {
-    private const string StorageKey = "comes_cookie_consent";
-
     private bool _visible    = false;
     private bool _dismissing = false;
 
@@ -46,12 +44,16 @@
     {
         if (!firstRender) return;
 
-        var stored = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
-        if (string.IsNullOrEmpty(stored))
+        try
         {
-            _visible = true;
-            StateHasChanged();
+            var stored = await JS.InvokeAsync<string>("offlineSync.getCookieConsent");
+            if (string.IsNullOrEmpty(stored))
+            {
+                _visible = true;
+                StateHasChanged();
+            }
         }
+        catch { /* JS not yet ready — banner stays hidden */ }
     }
 
     private async Task AcceptAsync()  => await DismissAsync("accepted");
@@ -65,7 +67,9 @@
         // Wait for the slide-out animation to finish
         await Task.Delay(350);
 
-        await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, choice);
+        try { await JS.InvokeVoidAsync("offlineSync.setCookieConsent", choice); }
+        catch { /* best-effort */ }
+
         _visible    = false;
         _dismissing = false;
         StateHasChanged();

@@ -87,5 +87,15 @@ window.offlineSync = {
 
     loadLastSync: function () {
         try { return localStorage.getItem('comes_last_sync') || ''; } catch { return ''; }
+    },
+
+    // ── Cookie consent ────────────────────────────────────────────────────────
+
+    getCookieConsent: function () {
+        try { return localStorage.getItem('comes_cookie_consent') || ''; } catch { return ''; }
+    },
+
+    setCookieConsent: function (choice) {
+        try { localStorage.setItem('comes_cookie_consent', choice); } catch { }
     }
 };
