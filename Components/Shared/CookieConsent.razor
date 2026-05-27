@@ -1,0 +1,75 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (_visible)
+{
+    <div class="cookie-banner @(_dismissing ? "cookie-banner--out" : "")">
+        <div class="cookie-banner__inner">
+            <div class="cookie-banner__icon" aria-hidden="true">
+                <!-- Cookie icon (SVG) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="1.8"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" />
+                    <circle cx="8.5" cy="9" r="1.2" fill="currentColor" stroke="none" />
+                    <circle cx="14.5" cy="14.5" r="1.2" fill="currentColor" stroke="none" />
+                    <circle cx="9" cy="14.5" r="0.8" fill="currentColor" stroke="none" />
+                    <circle cx="14.5" cy="9" r="0.8" fill="currentColor" stroke="none" />
+                </svg>
+            </div>
+
+            <p class="cookie-banner__text">
+                This website uses <strong>cookies</strong> to enhance your browsing experience
+                and keep you logged in between sessions. By clicking&nbsp;<strong>Accept</strong>,
+                you agree to our use of cookies.
+            </p>
+
+            <div class="cookie-banner__actions">
+                <button class="cookie-btn cookie-btn--accept" @onclick="AcceptAsync">
+                    Accept
+                </button>
+                <button class="cookie-btn cookie-btn--decline" @onclick="DeclineAsync">
+                    Decline
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private const string StorageKey = "comes_cookie_consent";
+
+    private bool _visible    = false;
+    private bool _dismissing = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var stored = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+        if (string.IsNullOrEmpty(stored))
+        {
+            _visible = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AcceptAsync()  => await DismissAsync("accepted");
+    private async Task DeclineAsync() => await DismissAsync("declined");
+
+    private async Task DismissAsync(string choice)
+    {
+        _dismissing = true;
+        StateHasChanged();
+
+        // Wait for the slide-out animation to finish
+        await Task.Delay(350);
+
+        await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, choice);
+        _visible    = false;
+        _dismissing = false;
+        StateHasChanged();
+    }
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
