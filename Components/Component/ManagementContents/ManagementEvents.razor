@@ -4,6 +4,7 @@
 @inject INewsFeedService NewsFeedService
 @inject UserStateService UserState
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JS
 
 <div class="events-wrap">
     <div class="events-header">
@@ -408,12 +409,12 @@
     {
         _isSaving = true;
         StateHasChanged();
-        await Task.Yield();
+        await Task.Delay(1); // flush render so spinner paints before API call
 
         await SaveEvent();
 
         _isSaving = false;
-        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+        await JS.InvokeVoidAsync("location.reload");
     }
 
     private async Task SaveEvent()

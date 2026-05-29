@@ -4,6 +4,7 @@
 @using USJR_COMES_WEBSITE.APIs
 @inject ManagementPostsViewModel ViewModel
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="posts-wrap">
@@ -364,8 +365,8 @@
     private async Task HandleSave()
     {
         _isSaving = true;
-        StateHasChanged(); // force spinner to appear immediately
-        await Task.Yield();  // give Blazor a render cycle before the heavy work
+        StateHasChanged();
+        await Task.Delay(1); // flush render so spinner paints before API call
 
         await ViewModel.SavePostAsync();
 
@@ -374,7 +375,7 @@
         if (ViewModel.ShouldReloadPage)
         {
             ViewModel.ClearReloadFlag();
-            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+            await JS.InvokeVoidAsync("location.reload");
             return;
         }
 

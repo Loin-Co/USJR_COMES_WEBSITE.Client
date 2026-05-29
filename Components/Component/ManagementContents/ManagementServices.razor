@@ -594,13 +594,13 @@
     {
         _isSaving = true;
         StateHasChanged();
-        await Task.Yield();
+        await Task.Delay(1); // flush render so spinner paints before API call
         await ViewModel.AddServiceAsync();
         _isSaving = false;
         if (ViewModel.ShouldReloadPage)
         {
             ViewModel.ClearReloadFlag();
-            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+            await JS.InvokeVoidAsync("location.reload");
             return;
         }
         StateHasChanged();
@@ -610,13 +610,13 @@
     {
         _isSaving = true;
         StateHasChanged();
-        await Task.Yield();
+        await Task.Delay(1); // flush render so spinner paints before API call
         await ViewModel.UpdateServiceAsync();
         _isSaving = false;
         if (ViewModel.ShouldReloadPage)
         {
             ViewModel.ClearReloadFlag();
-            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+            await JS.InvokeVoidAsync("location.reload");
             return;
         }
         StateHasChanged();
