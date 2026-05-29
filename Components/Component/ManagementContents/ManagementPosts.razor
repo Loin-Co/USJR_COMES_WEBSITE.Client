@@ -3,6 +3,7 @@
 @using USJR_COMES_WEBSITE.Components.Component.NewsFeedContents
 @using USJR_COMES_WEBSITE.APIs
 @inject ManagementPostsViewModel ViewModel
+@inject NavigationManager NavigationManager
 @implements IDisposable
 
 <div class="posts-wrap">
@@ -321,9 +322,17 @@
                     }
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" @onclick="ViewModel.CloseFormModal">Cancel</button>
-                    <button type="submit" class="btn btn-primary theme-button">
-                        @(ViewModel.IsEditing ? "Save" : (ViewModel.CurrentRole == "DepartmentChairman" ? "Post" : "Submit for Approval"))
+                    <button type="button" class="btn btn-secondary" @onclick="ViewModel.CloseFormModal" disabled="@ViewModel.IsSaving">Cancel</button>
+                    <button type="submit" class="btn btn-primary theme-button" disabled="@ViewModel.IsSaving">
+                        @if (ViewModel.IsSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            <span>Saving...</span>
+                        }
+                        else
+                        {
+                            @(ViewModel.IsEditing ? "Save" : (ViewModel.CurrentRole == "DepartmentChairman" ? "Post" : "Submit for Approval"))
+                        }
                     </button>
                 </div>
             </EditForm>
@@ -356,8 +365,19 @@
 
     protected override async Task OnInitializedAsync()
     {
-        ViewModel.Subscribe(StateHasChanged);
+        ViewModel.Subscribe(OnViewModelChanged);
         await ViewModel.LoadPostsAsync();
+    }
+
+    private void OnViewModelChanged()
+    {
+        if (ViewModel.ShouldReloadPage)
+        {
+            ViewModel.ClearReloadFlag();
+            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+            return;
+        }
+        StateHasChanged();
     }
 
     private void ConfirmDelete(NewsFeedPostViewModel post) { postToDelete = post; }
@@ -368,7 +388,7 @@
         if (postToDelete != null) { await ViewModel.DeletePostAsync(postToDelete); postToDelete = null; }
     }
 
-    public void Dispose() { ViewModel.Unsubscribe(StateHasChanged); }
+    public void Dispose() { ViewModel.Unsubscribe(OnViewModelChanged); }
 
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
