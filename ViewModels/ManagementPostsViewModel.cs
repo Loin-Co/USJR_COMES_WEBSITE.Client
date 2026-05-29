@@ -155,11 +155,16 @@ public class ManagementPostsViewModel
                         target.PostToHeadline = CurrentPost.PostToHeadline;
                         target.PostToSlideItem = CurrentPost.PostToSlideItem;
                     }
+                    IsFormModalOpen = false;
+                    ShouldReloadPage = true;
                     SuccessMessage = "Post saved successfully.";
+                    ShowSuccess = true;
                 }
                 else
                 {
+                    // Keep modal open so user can retry
                     SuccessMessage = "Failed to save post. Please try again.";
+                    ShowSuccess = true;
                 }
             }
             else
@@ -168,10 +173,11 @@ public class ManagementPostsViewModel
                     MultiPostRequest.PostToNewsFeed = true;
                 await _newsFeedService.CreateMultiPostAsync(MultiPostRequest);
                 await LoadPostsAsync();
+                IsFormModalOpen = false;
+                ShouldReloadPage = true;
                 SuccessMessage = "Post saved successfully.";
+                ShowSuccess = true;
             }
-            IsFormModalOpen = false;
-            ShouldReloadPage = true;
         }
         else
         {
@@ -198,9 +204,9 @@ public class ManagementPostsViewModel
             }
             IsFormModalOpen = false;
             SuccessMessage = "Post saved locally — will sync when you're back online.";
+            ShowSuccess = true;
         }
 
-        ShowSuccess = true;
         NotifyStateChanged();
     }
 
