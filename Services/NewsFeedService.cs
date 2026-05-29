@@ -42,15 +42,22 @@ public class NewsFeedService : INewsFeedService
         }
     }
 
+    // Tracks keys that were just mutated — next fetch bypasses browser HTTP cache
+    private readonly HashSet<string> _bustOnNextFetch = new();
+
     private void InvalidateCache(params string[] keys)
     {
         foreach (var key in keys)
+        {
             _cache.TryRemove(key, out _);
+            _bustOnNextFetch.Add(key);
+        }
     }
 
     public async Task<List<NewsFeedPostViewModel>?> GetNewsFeedPostsAsync(string? schoolId = null)
     {
         var cacheKey = string.IsNullOrEmpty(schoolId) ? "newsfeed_all" : $"newsfeed_user_{Uri.EscapeDataString(schoolId)}";
+        var bust = _bustOnNextFetch.Remove(cacheKey); // consume the flag
 
         return await GetFromCacheOrFetchAsync(
             cacheKey,
@@ -61,6 +68,9 @@ public class NewsFeedService : INewsFeedService
                     var url = string.IsNullOrEmpty(schoolId)
                         ? ApiEndpoints.NewsFeed.Base
                         : $"{ApiEndpoints.NewsFeed.Base}?schoolId={Uri.EscapeDataString(schoolId)}";
+                    // Append cache-buster when the data was just mutated so the
+                    // browser HTTP cache (max-age=300) doesn't serve stale data
+                    if (bust) url += (url.Contains('?') ? "&" : "?") + $"_cb={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
                     return await _httpClient.GetFromJsonAsync<List<NewsFeedPostViewModel>>(url);
                 }
                 catch { return null; }
@@ -158,11 +168,17 @@ public class NewsFeedService : INewsFeedService
 
     public async Task<List<UpcomingEventViewModel>?> GetUpcomingEventsAsync()
     {
+        var bust = _bustOnNextFetch.Remove("upcoming_events");
         return await GetFromCacheOrFetchAsync(
             "upcoming_events",
             async () =>
             {
-                try { return await _httpClient.GetFromJsonAsync<List<UpcomingEventViewModel>>(ApiEndpoints.UpcomingEvents.Base); }
+                try
+                {
+                    var url = ApiEndpoints.UpcomingEvents.Base;
+                    if (bust) url += $"?_cb={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+                    return await _httpClient.GetFromJsonAsync<List<UpcomingEventViewModel>>(url);
+                }
                 catch { return null; }
             }
         );
