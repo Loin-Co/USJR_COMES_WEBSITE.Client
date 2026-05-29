@@ -25,9 +25,6 @@ public class ManagementPostsViewModel
     public NewsFeedPostViewModel? RejectTarget { get; set; }
     public string RejectReason { get; set; } = string.Empty;
 
-    // Saving state
-    public bool IsSaving { get; private set; }
-
     // Success popup
     public bool ShowSuccess { get; private set; }
     public string SuccessMessage { get; private set; } = "Operation successful.";
@@ -135,11 +132,11 @@ public class ManagementPostsViewModel
         NotifyStateChanged();
     }
 
+    public bool ShouldReloadPage { get; private set; }
+    public void ClearReloadFlag() { ShouldReloadPage = false; }
+
     public async Task SavePostAsync()
     {
-        IsSaving = true;
-        NotifyStateChanged();
-
         if (_offlineSync.IsOnline)
         {
             if (IsEditing)
@@ -184,13 +181,9 @@ public class ManagementPostsViewModel
             SuccessMessage = "Post saved locally — will sync when you're back online.";
         }
 
-        IsSaving = false;
         ShowSuccess = true;
         NotifyStateChanged();
     }
-
-    public bool ShouldReloadPage { get; private set; }
-    public void ClearReloadFlag() { ShouldReloadPage = false; }
 
     public async Task DeletePostAsync(NewsFeedPostViewModel post)
     {
