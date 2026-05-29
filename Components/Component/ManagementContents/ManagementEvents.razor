@@ -3,6 +3,7 @@
 @using USJR_COMES_WEBSITE.APIs
 @inject INewsFeedService NewsFeedService
 @inject UserStateService UserState
+@inject NavigationManager NavigationManager
 
 <div class="events-wrap">
     <div class="events-header">
@@ -212,8 +213,18 @@
                 </div>
             </div>
             <div class="modal-actions">
-                <button class="btn btn-secondary" @onclick="CloseFormModal">Cancel</button>
-                <button class="btn btn-primary theme-button" @onclick="SaveEvent">Save</button>
+                <button class="btn btn-secondary" @onclick="CloseFormModal" disabled="@_isSaving">Cancel</button>
+                <button class="btn btn-primary theme-button" @onclick="HandleSaveEvent" disabled="@_isSaving">
+                    @if (_isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <span>Saving...</span>
+                    }
+                    else
+                    {
+                        <span>Save</span>
+                    }
+                </button>
             </div>
         </div>
     </div>
@@ -311,6 +322,7 @@
 
     private bool _showSuccess { get; set; }
     private string _successMessage = "Operation successful.";
+    private bool _isSaving;
 
     // Dummy Data for Participant list
     private string GetApprovalClass(string status) => status switch
@@ -390,6 +402,18 @@
     private void CloseFormModal()
     {
         IsFormModalOpen = false;
+    }
+
+    private async Task HandleSaveEvent()
+    {
+        _isSaving = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        await SaveEvent();
+
+        _isSaving = false;
+        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
     }
 
     private async Task SaveEvent()

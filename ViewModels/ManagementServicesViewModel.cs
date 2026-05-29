@@ -60,6 +60,9 @@ public class ManagementServicesViewModel
     public string SuccessMessage { get; private set; } = "Operation successful.";
     public void HideSuccess() { ShowSuccess = false; NotifyStateChanged(); }
 
+    public bool ShouldReloadPage { get; private set; }
+    public void ClearReloadFlag() { ShouldReloadPage = false; }
+
     private string _serviceSearchTerm = "";
     public string ServiceSearchTerm
     {
@@ -285,6 +288,7 @@ public class ManagementServicesViewModel
         }
         CloseAddServiceModal();
         ShowSuccess = true;
+        ShouldReloadPage = true;
         NotifyStateChanged();
     }
 
@@ -311,6 +315,7 @@ public class ManagementServicesViewModel
         }
         CloseEditServiceModal();
         ShowSuccess = true;
+        ShouldReloadPage = true;
         NotifyStateChanged();
     }
 

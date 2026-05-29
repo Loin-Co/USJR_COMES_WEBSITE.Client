@@ -3,6 +3,7 @@
 @inject USJR_COMES_WEBSITE.Services.UserStateService UserState
 @inject Microsoft.JSInterop.IJSRuntime JS
 @inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager NavigationManager
 @implements IDisposable
 
 <div class="services-wrapper">
@@ -299,8 +300,15 @@
                 <p class="text-muted small">Depending on the Action Type chosen, specific UI functionality will be generated for officers and students processing requests.</p>
             </div>
             <div class="modal-actions">
-                <button class="btn btn-secondary" @onclick="ViewModel.CloseAddServiceModal">Cancel</button>
-                <button class="btn btn-primary theme-button" @onclick="ViewModel.AddServiceAsync">Create Service</button>
+                <button class="btn btn-secondary" @onclick="ViewModel.CloseAddServiceModal" disabled="@_isSaving">Cancel</button>
+                <button class="btn btn-primary theme-button" @onclick="HandleAddService" disabled="@_isSaving">
+                    @if (_isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <span>Saving...</span>
+                    }
+                    else { <span>Create Service</span> }
+                </button>
             </div>
         </div>
     </div>
@@ -380,8 +388,15 @@
                 </div>
             </div>
             <div class="modal-actions">
-                <button class="btn btn-secondary" @onclick="ViewModel.CloseEditServiceModal">Cancel</button>
-                <button class="btn btn-primary theme-button" @onclick="ViewModel.UpdateServiceAsync">Update Service</button>
+                <button class="btn btn-secondary" @onclick="ViewModel.CloseEditServiceModal" disabled="@_isSaving">Cancel</button>
+                <button class="btn btn-primary theme-button" @onclick="HandleUpdateService" disabled="@_isSaving">
+                    @if (_isSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <span>Saving...</span>
+                    }
+                    else { <span>Update Service</span> }
+                </button>
             </div>
         </div>
     </div>
@@ -573,6 +588,39 @@
 @code {
     private HttpClient Http => HttpClientFactory.CreateClient("general");
     private bool _mobileDrawerOpen = false;
+    private bool _isSaving = false;
+
+    private async Task HandleAddService()
+    {
+        _isSaving = true;
+        StateHasChanged();
+        await Task.Yield();
+        await ViewModel.AddServiceAsync();
+        _isSaving = false;
+        if (ViewModel.ShouldReloadPage)
+        {
+            ViewModel.ClearReloadFlag();
+            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+            return;
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleUpdateService()
+    {
+        _isSaving = true;
+        StateHasChanged();
+        await Task.Yield();
+        await ViewModel.UpdateServiceAsync();
+        _isSaving = false;
+        if (ViewModel.ShouldReloadPage)
+        {
+            ViewModel.ClearReloadFlag();
+            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+            return;
+        }
+        StateHasChanged();
+    }
 
     private List<BudgetAccountItem>? _budgetAccounts;
 
