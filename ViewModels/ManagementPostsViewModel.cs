@@ -141,17 +141,36 @@ public class ManagementPostsViewModel
         {
             if (IsEditing)
             {
-                await _newsFeedService.UpdateNewsFeedPostAsync(CurrentPost);
+                var ok = await _newsFeedService.UpdateNewsFeedPostAsync(CurrentPost);
+                if (ok)
+                {
+                    // Directly patch the post in the list — no cache issues
+                    var target = Posts?.FirstOrDefault(p => p.Id == CurrentPost.Id);
+                    if (target != null)
+                    {
+                        target.Title = CurrentPost.Title;
+                        target.Description = CurrentPost.Description;
+                        target.Status = CurrentPost.Status;
+                        target.PostToNewsFeed = CurrentPost.PostToNewsFeed;
+                        target.PostToHeadline = CurrentPost.PostToHeadline;
+                        target.PostToSlideItem = CurrentPost.PostToSlideItem;
+                    }
+                    SuccessMessage = "Post saved successfully.";
+                }
+                else
+                {
+                    SuccessMessage = "Failed to save post. Please try again.";
+                }
             }
             else
             {
                 if (CurrentRole != "DepartmentChairman")
                     MultiPostRequest.PostToNewsFeed = true;
                 await _newsFeedService.CreateMultiPostAsync(MultiPostRequest);
+                await LoadPostsAsync();
+                SuccessMessage = "Post saved successfully.";
             }
             IsFormModalOpen = false;
-            await LoadPostsAsync();
-            SuccessMessage = "Post saved successfully.";
             ShouldReloadPage = true;
         }
         else
