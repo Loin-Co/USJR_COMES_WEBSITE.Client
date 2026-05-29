@@ -371,14 +371,7 @@
         await ViewModel.SavePostAsync();
 
         _isSaving = false;
-
-        if (ViewModel.ShouldReloadPage)
-        {
-            ViewModel.ClearReloadFlag();
-            await JS.InvokeVoidAsync("location.reload");
-            return;
-        }
-
+        ViewModel.ClearReloadFlag();
         StateHasChanged();
     }
 

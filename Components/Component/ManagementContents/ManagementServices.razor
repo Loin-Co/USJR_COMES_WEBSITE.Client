@@ -597,12 +597,7 @@
         await Task.Delay(1); // flush render so spinner paints before API call
         await ViewModel.AddServiceAsync();
         _isSaving = false;
-        if (ViewModel.ShouldReloadPage)
-        {
-            ViewModel.ClearReloadFlag();
-            await JS.InvokeVoidAsync("location.reload");
-            return;
-        }
+        ViewModel.ClearReloadFlag();
         StateHasChanged();
     }
 
@@ -613,12 +608,7 @@
         await Task.Delay(1); // flush render so spinner paints before API call
         await ViewModel.UpdateServiceAsync();
         _isSaving = false;
-        if (ViewModel.ShouldReloadPage)
-        {
-            ViewModel.ClearReloadFlag();
-            await JS.InvokeVoidAsync("location.reload");
-            return;
-        }
+        ViewModel.ClearReloadFlag();
         StateHasChanged();
     }
 
