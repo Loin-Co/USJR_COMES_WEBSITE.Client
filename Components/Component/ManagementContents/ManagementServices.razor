@@ -83,15 +83,26 @@
                 <div class="d-flex align-items-center gap-3 flex-wrap">
                     <h2 class="m-0" style="color: #00ff88;">@ViewModel.SelectedService.Name</h2>
 
-                    <button class="btn btn-sm @(ViewModel.SelectedService.IsPublished ? "btn-outline-secondary" : "btn-outline-theme")" @onclick="ViewModel.TogglePublishStatusAsync" title="Toggle Publish Status">
-                        <i class="bi @(ViewModel.SelectedService.IsPublished ? "bi-eye-slash" : "bi-eye")"></i> @(ViewModel.SelectedService.IsPublished ? "Unpublish" : "Publish")
+                    <button class="btn btn-sm @(ViewModel.SelectedService.IsPublished ? "btn-outline-secondary" : "btn-outline-theme")"
+                            @onclick="HandleTogglePublish"
+                            disabled="@_isToggling"
+                            title="Toggle Publish Status">
+                        @if (_isToggling)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <i class="bi @(ViewModel.SelectedService.IsPublished ? "bi-eye-slash" : "bi-eye")"></i>
+                        }
+                        @(ViewModel.SelectedService.IsPublished ? "Unpublish" : "Publish")
                     </button>
 
-                    <button class="btn btn-sm btn-outline-theme" @onclick="ViewModel.OpenEditServiceModal" title="Edit Service">
+                    <button class="btn btn-sm btn-outline-theme" @onclick="ViewModel.OpenEditServiceModal" title="Edit Service" disabled="@(_isToggling || _isDeleting)">
                         <i class="bi bi-pencil"></i> Edit Service
                     </button>
 
-                    <button class="btn btn-sm btn-outline-danger" @onclick="ViewModel.DeleteSelectedServiceAsync" title="Delete Service">
+                    <button class="btn btn-sm btn-outline-danger" @onclick="OpenDeleteServiceModal" title="Delete Service" disabled="@(_isToggling || _isDeleting)">
                         <i class="bi bi-trash"></i> Delete Service
                     </button>
 
@@ -581,6 +592,30 @@
     </div>
 }
 
+@if (_showDeleteConfirm && ViewModel.SelectedService != null)
+{
+    <div class="modal-overlay" @onclick="CancelDeleteService">
+        <div class="modal-card confirm-delete-card" @onclick:stopPropagation="true">
+            <h3 class="modal-title text-danger">Delete Service?</h3>
+            <div class="modal-body" style="padding:1rem 0;">
+                <p>Are you sure you want to delete <strong>"@ViewModel.SelectedService.Name"</strong>?</p>
+                <p class="text-muted small">All requests under this service will also be deleted. This cannot be undone.</p>
+            </div>
+            <div class="modal-actions" style="justify-content:center;">
+                <button class="btn btn-secondary" @onclick="CancelDeleteService" disabled="@_isDeleting">Cancel</button>
+                <button class="btn btn-danger" @onclick="ProceedDeleteService" disabled="@_isDeleting">
+                    @if (_isDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <span>Deleting...</span>
+                    }
+                    else { <span>Delete</span> }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <SuccessPopup IsVisible="ViewModel.ShowSuccess"
               Message="@ViewModel.SuccessMessage"
               OnOkClick="ViewModel.HideSuccess" />
@@ -589,6 +624,9 @@
     private HttpClient Http => HttpClientFactory.CreateClient("general");
     private bool _mobileDrawerOpen = false;
     private bool _isSaving = false;
+    private bool _isDeleting = false;
+    private bool _isToggling = false;
+    private bool _showDeleteConfirm = false;
 
     private async Task HandleAddService()
     {
@@ -609,6 +647,30 @@
         await ViewModel.UpdateServiceAsync();
         _isSaving = false;
         ViewModel.ClearReloadFlag();
+        StateHasChanged();
+    }
+
+    private async Task HandleTogglePublish()
+    {
+        _isToggling = true;
+        StateHasChanged();
+        await Task.Delay(1);
+        await ViewModel.TogglePublishStatusAsync();
+        _isToggling = false;
+        StateHasChanged();
+    }
+
+    private void OpenDeleteServiceModal() { _showDeleteConfirm = true; }
+    private void CancelDeleteService() { _showDeleteConfirm = false; }
+
+    private async Task ProceedDeleteService()
+    {
+        _isDeleting = true;
+        StateHasChanged();
+        await Task.Delay(1);
+        await ViewModel.DeleteSelectedServiceAsync();
+        _showDeleteConfirm = false;
+        _isDeleting = false;
         StateHasChanged();
     }
 

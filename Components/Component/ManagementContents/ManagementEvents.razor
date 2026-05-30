@@ -82,7 +82,13 @@
                     <div class="event-card-actions">
                         @if (ev.ApprovalStatus == "Approved" || UserState.CurrentUser?.AccountRole.ToString() == "DepartmentChairman")
                         {
-                            <button class="eca-btn @(ev.Status == "Published" ? "eca-unpublish" : "eca-publish")" @onclick="() => TogglePublishAsync(ev)">
+                            <button class="eca-btn @(ev.Status == "Published" ? "eca-unpublish" : "eca-publish")"
+                                    @onclick="() => HandleTogglePublish(ev)"
+                                    disabled="@(_togglingId == ev.Id)">
+                                @if (_togglingId == ev.Id)
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                }
                                 @(ev.Status == "Published" ? "Unpublish" : "Publish")
                             </button>
                         }
@@ -119,8 +125,15 @@
                 <p class="text-muted small">This action cannot be undone.</p>
             </div>
             <div class="modal-actions" style="justify-content: center;">
-                <button class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
-                <button class="btn btn-danger" @onclick="ProceedDelete">Delete</button>
+                <button class="btn btn-secondary" @onclick="CancelDelete" disabled="@_isDeleting">Cancel</button>
+                <button class="btn btn-danger" @onclick="ProceedDelete" disabled="@_isDeleting">
+                    @if (_isDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <span>Deleting...</span>
+                    }
+                    else { <span>Delete</span> }
+                </button>
             </div>
         </div>
     </div>
@@ -324,6 +337,8 @@
     private bool _showSuccess { get; set; }
     private string _successMessage = "Operation successful.";
     private bool _isSaving;
+    private bool _isDeleting;
+    private int _togglingId = -1;
 
     // Dummy Data for Participant list
     private string GetApprovalClass(string status) => status switch
@@ -433,15 +448,21 @@
         _showSuccess = true;
     }
 
-    private async Task TogglePublishAsync(UpcomingEventViewModel ev)
+    private async Task HandleTogglePublish(UpcomingEventViewModel ev)
     {
+        _togglingId = ev.Id;
+        StateHasChanged();
+        await Task.Delay(1);
         var oldStatus = ev.Status;
         ev.Status = ev.Status == "Published" ? "Unpublished" : "Published";
+        StateHasChanged();
 
         var ok = await NewsFeedService.UpdateUpcomingEventAsync(ev);
-        if (!ok) { ev.Status = oldStatus; return; }
-        _successMessage = "Event status updated.";
-        _showSuccess = true;
+        if (!ok) { ev.Status = oldStatus; }
+        else { _successMessage = "Event status updated."; _showSuccess = true; }
+
+        _togglingId = -1;
+        StateHasChanged();
     }
 
     private void ConfirmDelete(UpcomingEventViewModel ev)
@@ -456,18 +477,22 @@
 
     private async Task ProceedDelete()
     {
-        if (eventToDelete != null)
-        {
-            var deleted = eventToDelete;
-            var idx = Events.IndexOf(deleted);
-            Events.Remove(deleted);
-            eventToDelete = null;
+        if (eventToDelete == null) return;
+        _isDeleting = true;
+        StateHasChanged();
+        await Task.Delay(1);
 
-            var ok = await NewsFeedService.DeleteUpcomingEventAsync(deleted.Id);
-            if (!ok) { Events.Insert(Math.Max(0, idx), deleted); return; }
-            _successMessage = "Event deleted successfully.";
-            _showSuccess = true;
-        }
+        var deleted = eventToDelete;
+        var idx = Events.IndexOf(deleted);
+        Events.Remove(deleted);
+        eventToDelete = null;
+
+        var ok = await NewsFeedService.DeleteUpcomingEventAsync(deleted.Id);
+        if (!ok) { Events.Insert(Math.Max(0, idx), deleted); }
+        else { _successMessage = "Event deleted successfully."; _showSuccess = true; }
+
+        _isDeleting = false;
+        StateHasChanged();
     }
 
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
