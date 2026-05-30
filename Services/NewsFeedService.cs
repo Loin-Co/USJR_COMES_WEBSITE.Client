@@ -7,6 +7,7 @@ using USJR_COMES_WEBSITE.APIs;
 public class NewsFeedService : INewsFeedService
 {
     private readonly HttpClient _httpClient;
+    private readonly IHomeService _homeService;
     // ConcurrentDictionary is required here — multiple Blazor components on the same page
     // (NewsFeedContent + UpcomingEvents) can call this service simultaneously from async
     // continuations, which races on a plain Dictionary<> and causes data corruption.
@@ -20,9 +21,10 @@ public class NewsFeedService : INewsFeedService
         public bool IsExpired => DateTime.UtcNow > ExpirationTime;
     }
 
-    public NewsFeedService(HttpClient httpClient)
+    public NewsFeedService(HttpClient httpClient, IHomeService homeService)
     {
         _httpClient = httpClient;
+        _homeService = homeService;
     }
 
     private async Task<T> GetFromCacheOrFetchAsync<T>(string cacheKey, Func<Task<T>> fetchFunc)
@@ -45,13 +47,16 @@ public class NewsFeedService : INewsFeedService
     // Tracks keys that were just mutated — next fetch bypasses browser HTTP cache
     private readonly HashSet<string> _bustOnNextFetch = new();
 
-    private void InvalidateCache(params string[] keys)
+    private void InvalidateCache(params string[] keys) => InvalidateCache(bustHome: false, keys);
+
+    private void InvalidateCache(bool bustHome, params string[] keys)
     {
         foreach (var key in keys)
         {
             _cache.TryRemove(key, out _);
             _bustOnNextFetch.Add(key);
         }
+        if (bustHome) _homeService.InvalidateHomeCache();
     }
 
     public async Task<List<NewsFeedPostViewModel>?> GetNewsFeedPostsAsync(string? schoolId = null)
@@ -113,10 +118,10 @@ public class NewsFeedService : INewsFeedService
 
     public async Task<bool> CreateMultiPostAsync(MultiPostRequestViewModel request)
     {
-        try 
-        { 
+        try
+        {
             var result = (await _httpClient.PostAsJsonAsync(ApiEndpoints.NewsFeed.MultiPost, request)).IsSuccessStatusCode;
-            if (result) InvalidateCache("newsfeed_all", "upcoming_events");
+            if (result) InvalidateCache(bustHome: true, "newsfeed_all", "upcoming_events");
             return result;
         }
         catch { return false; }
@@ -124,10 +129,10 @@ public class NewsFeedService : INewsFeedService
 
     public async Task<bool> UpdateNewsFeedPostAsync(NewsFeedPostViewModel post)
     {
-        try 
-        { 
+        try
+        {
             var result = (await _httpClient.PutAsJsonAsync(ApiEndpoints.NewsFeed.WithId(post.Id), post)).IsSuccessStatusCode;
-            if (result) InvalidateCache("newsfeed_all", "upcoming_events");
+            if (result) InvalidateCache(bustHome: true, "newsfeed_all", "upcoming_events");
             return result;
         }
         catch { return false; }
@@ -135,10 +140,10 @@ public class NewsFeedService : INewsFeedService
 
     public async Task<bool> DeleteNewsFeedPostAsync(int id)
     {
-        try 
-        { 
+        try
+        {
             var result = (await _httpClient.DeleteAsync(ApiEndpoints.NewsFeed.WithId(id))).IsSuccessStatusCode;
-            if (result) InvalidateCache("newsfeed_all", "upcoming_events");
+            if (result) InvalidateCache(bustHome: true, "newsfeed_all", "upcoming_events");
             return result;
         }
         catch { return false; }
@@ -146,10 +151,10 @@ public class NewsFeedService : INewsFeedService
 
     public async Task<bool> ApprovePostAsync(int id, string adviserId)
     {
-        try 
-        { 
+        try
+        {
             var result = (await _httpClient.PutAsJsonAsync(ApiEndpoints.NewsFeed.Approve(id), new { ActorSchoolId = adviserId })).IsSuccessStatusCode;
-            if (result) InvalidateCache("newsfeed_all", "upcoming_events");
+            if (result) InvalidateCache(bustHome: true, "newsfeed_all", "upcoming_events");
             return result;
         }
         catch { return false; }
@@ -157,8 +162,8 @@ public class NewsFeedService : INewsFeedService
 
     public async Task<bool> RejectPostAsync(int id, string adviserId, string reason)
     {
-        try 
-        { 
+        try
+        {
             var result = (await _httpClient.PutAsJsonAsync(ApiEndpoints.NewsFeed.Reject(id), new { ActorSchoolId = adviserId, Reason = reason })).IsSuccessStatusCode;
             if (result) InvalidateCache("newsfeed_all", "upcoming_events");
             return result;
@@ -186,10 +191,10 @@ public class NewsFeedService : INewsFeedService
 
     public async Task<bool> CreateUpcomingEventAsync(UpcomingEventViewModel ev)
     {
-        try 
-        { 
+        try
+        {
             var result = (await _httpClient.PostAsJsonAsync(ApiEndpoints.UpcomingEvents.Base, ev)).IsSuccessStatusCode;
-            if (result) InvalidateCache("upcoming_events");
+            if (result) InvalidateCache(bustHome: true, "upcoming_events");
             return result;
         }
         catch { return false; }
@@ -197,10 +202,10 @@ public class NewsFeedService : INewsFeedService
 
     public async Task<bool> UpdateUpcomingEventAsync(UpcomingEventViewModel ev)
     {
-        try 
-        { 
+        try
+        {
             var result = (await _httpClient.PutAsJsonAsync(ApiEndpoints.UpcomingEvents.WithId(ev.Id), ev)).IsSuccessStatusCode;
-            if (result) InvalidateCache("upcoming_events");
+            if (result) InvalidateCache(bustHome: true, "upcoming_events");
             return result;
         }
         catch { return false; }
@@ -211,7 +216,7 @@ public class NewsFeedService : INewsFeedService
         try
         {
             var result = (await _httpClient.DeleteAsync(ApiEndpoints.UpcomingEvents.WithId(id))).IsSuccessStatusCode;
-            if (result) InvalidateCache("upcoming_events");
+            if (result) InvalidateCache(bustHome: true, "upcoming_events");
             return result;
         }
         catch { return false; }
@@ -222,7 +227,7 @@ public class NewsFeedService : INewsFeedService
         try
         {
             var result = (await _httpClient.PutAsJsonAsync(ApiEndpoints.UpcomingEvents.Approve(id), new { ActorSchoolId = adviserId })).IsSuccessStatusCode;
-            if (result) InvalidateCache("upcoming_events");
+            if (result) InvalidateCache(bustHome: true, "upcoming_events");
             return result;
         }
         catch { return false; }

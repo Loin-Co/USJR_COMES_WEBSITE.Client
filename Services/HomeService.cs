@@ -7,6 +7,7 @@ public class HomeService : IHomeService
 {
     private readonly HttpClient _httpClient;
     private readonly ConcurrentDictionary<string, CacheEntry> _cache = new();
+    private readonly HashSet<string> _bustOnNextFetch = new();
     private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(5);
 
     private class CacheEntry
@@ -38,15 +39,26 @@ public class HomeService : IHomeService
         }
     }
 
+    public void InvalidateHomeCache()
+    {
+        _cache.TryRemove("headlines", out _);
+        _cache.TryRemove("slide_items", out _);
+        _bustOnNextFetch.Add("headlines");
+        _bustOnNextFetch.Add("slide_items");
+    }
+
     public async Task<List<Headline>?> GetHeadlinesAsync()
     {
+        var bust = _bustOnNextFetch.Remove("headlines");
         return await GetFromCacheOrFetchAsync(
             "headlines",
             async () =>
             {
                 try
                 {
-                    return await _httpClient.GetFromJsonAsync<List<Headline>>("api/Headlines");
+                    var url = "api/Headlines";
+                    if (bust) url += $"?_cb={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+                    return await _httpClient.GetFromJsonAsync<List<Headline>>(url);
                 }
                 catch
                 {
@@ -58,13 +70,16 @@ public class HomeService : IHomeService
 
     public async Task<List<SlideItem>?> GetSlideItemsAsync()
     {
+        var bust = _bustOnNextFetch.Remove("slide_items");
         return await GetFromCacheOrFetchAsync(
             "slide_items",
             async () =>
             {
                 try
                 {
-                    return await _httpClient.GetFromJsonAsync<List<SlideItem>>("api/SlideItems");
+                    var url = "api/SlideItems";
+                    if (bust) url += $"?_cb={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+                    return await _httpClient.GetFromJsonAsync<List<SlideItem>>(url);
                 }
                 catch
                 {
